@@ -1,3 +1,3 @@
-/home/sofiya/repos/622/app/.cxx/cmake/release/x86_64/CMakeFiles/rebuild_cache.dir
-/home/sofiya/repos/622/app/.cxx/cmake/release/x86_64/CMakeFiles/edit_cache.dir
-/home/sofiya/repos/622/app/.cxx/cmake/release/x86_64/CMakeFiles/native-lib.dir
+/home/sofiya/repos/CSE622Project/app/.cxx/cmake/release/x86_64/CMakeFiles/rebuild_cache.dir
+/home/sofiya/repos/CSE622Project/app/.cxx/cmake/release/x86_64/CMakeFiles/edit_cache.dir
+/home/sofiya/repos/CSE622Project/app/.cxx/cmake/release/x86_64/CMakeFiles/native-lib.dir

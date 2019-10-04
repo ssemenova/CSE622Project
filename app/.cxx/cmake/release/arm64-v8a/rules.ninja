@@ -42,7 +42,7 @@ rule CXX_SHARED_LIBRARY_LINKER__native-lib
 # Rule for re-running cmake.
 
 rule RERUN_CMAKE
-  command = /home/sofiya/Android/Sdk/cmake/3.10.2.4988404/bin/cmake -H/home/sofiya/repos/622/app/src/main/cpp -B/home/sofiya/repos/622/app/.cxx/cmake/release/arm64-v8a
+  command = /home/sofiya/Android/Sdk/cmake/3.10.2.4988404/bin/cmake -H/home/sofiya/repos/CSE622Project/app/src/main/cpp -B/home/sofiya/repos/CSE622Project/app/.cxx/cmake/release/arm64-v8a
   description = Re-running CMake...
   generator = 1
 

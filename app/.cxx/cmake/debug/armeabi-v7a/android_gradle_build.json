@@ -1,33 +1,33 @@
 {
   "stringTable": {
-    "0": "/home/sofiya/repos/622/app/.cxx/cmake/debug/armeabi-v7a",
+    "0": "/home/sofiya/repos/CSE622Project/app/.cxx/cmake/debug/armeabi-v7a",
     "1": "--target=armv7-none-linux-androideabi28 --gcc-toolchain=/home/sofiya/Android/Sdk/ndk-bundle/toolchains/llvm/prebuilt/linux-x86_64 --sysroot=/home/sofiya/Android/Sdk/ndk-bundle/toolchains/llvm/prebuilt/linux-x86_64/sysroot -Dnative_lib_EXPORTS -I/home/sofiya/OpenCV-android-sdk/sdk/native/jni/include -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -fno-addrsig -march=armv7-a -mthumb -Wa,--noexecstack -Wformat -Werror=format-security -frtti -fexceptions -O0 -fno-limit-debug-info -fPIC"
   },
   "buildFiles": [
     "/home/sofiya/Android/Sdk/ndk-bundle/build/cmake/platforms.cmake",
     "/home/sofiya/Android/Sdk/ndk-bundle/build/cmake/android.toolchain.cmake",
-    "/home/sofiya/repos/622/app/src/main/cpp/CMakeLists.txt"
+    "/home/sofiya/repos/CSE622Project/app/src/main/cpp/CMakeLists.txt"
   ],
   "cleanCommands": [
-    "/home/sofiya/Android/Sdk/cmake/3.10.2.4988404/bin/ninja -C \"/home/sofiya/repos/622/app/.cxx/cmake/debug/armeabi-v7a\" clean"
+    "/home/sofiya/Android/Sdk/cmake/3.10.2.4988404/bin/ninja -C \"/home/sofiya/repos/CSE622Project/app/.cxx/cmake/debug/armeabi-v7a\" clean"
   ],
-  "buildTargetsCommand": "/home/sofiya/Android/Sdk/cmake/3.10.2.4988404/bin/ninja -C \"/home/sofiya/repos/622/app/.cxx/cmake/debug/armeabi-v7a\" {LIST_OF_TARGETS_TO_BUILD}",
+  "buildTargetsCommand": "/home/sofiya/Android/Sdk/cmake/3.10.2.4988404/bin/ninja -C \"/home/sofiya/repos/CSE622Project/app/.cxx/cmake/debug/armeabi-v7a\" {LIST_OF_TARGETS_TO_BUILD}",
   "libraries": {
     "native-lib-Debug-armeabi-v7a": {
-      "buildCommand": "/home/sofiya/Android/Sdk/cmake/3.10.2.4988404/bin/ninja -C \"/home/sofiya/repos/622/app/.cxx/cmake/debug/armeabi-v7a\" native-lib",
+      "buildCommand": "/home/sofiya/Android/Sdk/cmake/3.10.2.4988404/bin/ninja -C \"/home/sofiya/repos/CSE622Project/app/.cxx/cmake/debug/armeabi-v7a\" native-lib",
       "buildType": "debug",
       "toolchain": "3590070750",
       "abi": "armeabi-v7a",
       "artifactName": "native-lib",
       "files": [
         {
-          "src": "/home/sofiya/repos/622/app/src/main/cpp/native-lib.cpp",
+          "src": "/home/sofiya/repos/CSE622Project/app/src/main/cpp/native-lib.cpp",
           "flagsOrdinal": 1,
           "workingDirectoryOrdinal": 0
         }
       ],
       "headers": [],
-      "output": "/home/sofiya/repos/622/app/build/intermediates/cmake/debug/obj/armeabi-v7a/libnative-lib.so"
+      "output": "/home/sofiya/repos/CSE622Project/app/build/intermediates/cmake/debug/obj/armeabi-v7a/libnative-lib.so"
     }
   },
   "toolchains": {
