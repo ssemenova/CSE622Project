@@ -1,0 +1,5 @@
+# ninja log v5
+0	901	1570211777	CMakeFiles/native-lib.dir/native-lib.cpp.o	cf2664c5bda439e1
+902	1069	1570211777	/home/sofiya/repos/622/app/build/intermediates/cmake/debug/obj/arm64-v8a/libnative-lib.so	8d96f5a2b68b98ef
+2	842	1570212342	CMakeFiles/native-lib.dir/native-lib.cpp.o	cf2664c5bda439e1
+842	1016	1570212342	/home/sofiya/repos/622/app/build/intermediates/cmake/debug/obj/arm64-v8a/libnative-lib.so	8d96f5a2b68b98ef

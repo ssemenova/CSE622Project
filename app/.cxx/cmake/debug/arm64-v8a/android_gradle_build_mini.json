@@ -1,0 +1,19 @@
+{
+  "buildFiles": [
+    "/home/sofiya/Android/Sdk/ndk-bundle/build/cmake/platforms.cmake",
+    "/home/sofiya/Android/Sdk/ndk-bundle/build/cmake/android.toolchain.cmake",
+    "/home/sofiya/repos/622/app/src/main/cpp/CMakeLists.txt"
+  ],
+  "cleanCommands": [
+    "/home/sofiya/Android/Sdk/cmake/3.10.2.4988404/bin/ninja -C \"/home/sofiya/repos/622/app/.cxx/cmake/debug/arm64-v8a\" clean"
+  ],
+  "buildTargetsCommand": "/home/sofiya/Android/Sdk/cmake/3.10.2.4988404/bin/ninja -C \"/home/sofiya/repos/622/app/.cxx/cmake/debug/arm64-v8a\" {LIST_OF_TARGETS_TO_BUILD}",
+  "libraries": {
+    "native-lib-Debug-arm64-v8a": {
+      "artifactName": "native-lib",
+      "buildCommand": "/home/sofiya/Android/Sdk/cmake/3.10.2.4988404/bin/ninja -C \"/home/sofiya/repos/622/app/.cxx/cmake/debug/arm64-v8a\" native-lib",
+      "abi": "arm64-v8a",
+      "output": "/home/sofiya/repos/622/app/build/intermediates/cmake/debug/obj/arm64-v8a/libnative-lib.so"
+    }
+  }
+}

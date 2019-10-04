@@ -1,0 +1,88 @@
+
+Meet The Overflow, a newsletter by developers, for developers. Fascinating questions, illuminating answers, and entertaining links from around the web. Learn more
+
+    Home
+        Public
+
+    Stack Overflow
+    Tags
+    Users
+    Jobs
+
+    Teams
+    What’s this?
+
+        First 10 Free
+
+What should be in my .gitignore for an Android Studio project?
+Ask Question
+Asked 6 years, 4 months ago
+Active 5 months ago
+Viewed 427k times
+1187
+
+What files should be in my .gitignore for an Android Studio project?
+
+I've seen several examples that all include .iml but IntelliJ docs say that .iml must be included in your source control.
+git android-studio gitignore
+shareimprove this question
+edited May 19 '18 at 14:42
+Ashraf.Shk786
+53511 gold badge99 silver badges2121 bronze badges
+asked May 24 '13 at 14:04
+respectTheCode
+21.6k1616 gold badges6565 silver badges8080 bronze badges
+
+    5
+    github.com/github/gitignore – Yousha Aleayoub Mar 6 '17 at 15:03
+
+add a comment
+29 Answers
+active
+oldest
+votes
+1271
+
+Updated to Android Studio 3.0 Please share missing items in comments.
+
+A late answer but none of the answers here and here was right on the money for us...
+
+So, here's our gitignore file:
+
+#built application files
+*.apk
+*.ap_
+
+# files for the dex VM
+*.dex
+
+# Java class files
+*.class
+
+# generated files
+bin/
+gen/
+
+# Local configuration file (sdk path, etc)
+local.properties
+
+# Windows thumbnail db
+Thumbs.db
+
+# OSX files
+.DS_Store
+
+# Android Studio
+*.iml
+.idea
+#.idea/workspace.xml - remove # and delete .idea if it better suit your needs.
+.gradle
+build/
+.navigation
+captures/
+output.json 
+
+#NDK
+obj/
+.externalNativeBuild
+

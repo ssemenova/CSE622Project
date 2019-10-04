@@ -1,0 +1,5 @@
+# ninja log v5
+0	889	1570211778	CMakeFiles/native-lib.dir/native-lib.cpp.o	7a44223a23e77736
+889	961	1570211778	/home/sofiya/repos/622/app/build/intermediates/cmake/debug/obj/armeabi-v7a/libnative-lib.so	9695304c70cf4264
+1	765	1570212341	CMakeFiles/native-lib.dir/native-lib.cpp.o	7a44223a23e77736
+765	836	1570212341	/home/sofiya/repos/622/app/build/intermediates/cmake/debug/obj/armeabi-v7a/libnative-lib.so	9695304c70cf4264
