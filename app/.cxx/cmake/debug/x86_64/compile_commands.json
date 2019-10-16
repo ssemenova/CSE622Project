@@ -1,7 +1,0 @@
-[
-{
-  "directory": "/home/sofiya/repos/CSE622Project/app/.cxx/cmake/debug/x86_64",
-  "command": "/home/sofiya/Android/Sdk/ndk-bundle/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ --target=x86_64-none-linux-android28 --gcc-toolchain=/home/sofiya/Android/Sdk/ndk-bundle/toolchains/llvm/prebuilt/linux-x86_64 --sysroot=/home/sofiya/Android/Sdk/ndk-bundle/toolchains/llvm/prebuilt/linux-x86_64/sysroot  -Dnative_lib_EXPORTS -I/home/sofiya/OpenCV-android-sdk/sdk/native/jni/include  -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -fno-addrsig -Wa,--noexecstack -Wformat -Werror=format-security  -frtti -fexceptions -O0 -fno-limit-debug-info  -fPIC   -o CMakeFiles/native-lib.dir/native-lib.cpp.o -c /home/sofiya/repos/CSE622Project/app/src/main/cpp/native-lib.cpp",
-  "file": "/home/sofiya/repos/CSE622Project/app/src/main/cpp/native-lib.cpp"
-}
-]

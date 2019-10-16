@@ -1,0 +1,4 @@
+include ':app'
+
+include ':opencv'
+project(':opencv').projectDir = new File('/home/sofiya/OpenCV-android-sdk/sdk')

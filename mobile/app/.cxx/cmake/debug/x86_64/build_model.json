@@ -1,0 +1,74 @@
+{
+  "variant": {
+    "module": {
+      "rootBuildGradleFolder": "/home/sofiya/repos/CSE622Project",
+      "sdkFolder": "/home/sofiya/Android/Sdk",
+      "isNativeCompilerSettingsCacheEnabled": false,
+      "isBuildOnlyTargetAbiEnabled": true,
+      "splitsAbiFilterSet": [],
+      "intermediatesFolder": "/home/sofiya/repos/CSE622Project/app/build/intermediates",
+      "gradleModulePathName": ":app",
+      "moduleRootFolder": "/home/sofiya/repos/CSE622Project/app",
+      "makeFile": "/home/sofiya/repos/CSE622Project/app/src/main/cpp/CMakeLists.txt",
+      "buildSystem": "CMAKE",
+      "compilerSettingsCacheFolder": "/home/sofiya/repos/CSE622Project/.cxx",
+      "cxxFolder": "/home/sofiya/repos/CSE622Project/app/.cxx",
+      "ndkFolder": "/home/sofiya/Android/Sdk/ndk-bundle",
+      "ndkVersion": "20.0.5594570",
+      "ndkSupportedAbiList": [
+        "ARMEABI_V7A",
+        "ARM64_V8A",
+        "X86",
+        "X86_64"
+      ],
+      "ndkDefaultAbiList": [
+        "ARMEABI_V7A",
+        "ARM64_V8A",
+        "X86",
+        "X86_64"
+      ],
+      "cmakeToolchainFile": "."
+    },
+    "buildSystemArgumentList": [
+      "-DOpenCV_DIR\u003d/home/sofiya/OpenCV-android-sdk/sdk/native"
+    ],
+    "cFlagList": [],
+    "cppFlagsList": [
+      "-frtti -fexceptions"
+    ],
+    "variantName": "debug",
+    "soFolder": "/home/sofiya/repos/CSE622Project/app/build/intermediates/cmake/debug/lib",
+    "objFolder": "/home/sofiya/repos/CSE622Project/app/build/intermediates/cmake/debug/obj",
+    "jsonFolder": "/home/sofiya/repos/CSE622Project/app/.cxx/cmake/debug",
+    "gradleBuildOutputFolder": "/home/sofiya/repos/CSE622Project/app/.cxx/cxx/debug",
+    "isDebuggableEnabled": true,
+    "validAbiList": [
+      "ARMEABI_V7A",
+      "ARM64_V8A",
+      "X86",
+      "X86_64"
+    ],
+    "buildTargetSet": []
+  },
+  "abi": "X86_64",
+  "abiPlatformVersion": 28,
+  "cxxBuildFolder": "/home/sofiya/repos/CSE622Project/app/.cxx/cmake/debug/x86_64",
+  "jsonFile": "/home/sofiya/repos/CSE622Project/app/.cxx/cmake/debug/x86_64/android_gradle_build.json",
+  "gradleBuildOutputFolder": "/home/sofiya/repos/CSE622Project/app/.cxx/cxx/debug/x86_64",
+  "objFolder": "/home/sofiya/repos/CSE622Project/app/build/intermediates/cmake/debug/obj/x86_64",
+  "buildCommandFile": "/home/sofiya/repos/CSE622Project/app/.cxx/cmake/debug/x86_64/build_command.txt",
+  "buildOutputFile": "/home/sofiya/repos/CSE622Project/app/.cxx/cmake/debug/x86_64/build_output.txt",
+  "modelOutputFile": "/home/sofiya/repos/CSE622Project/app/.cxx/cmake/debug/x86_64/build_model.json",
+  "cmake": {
+    "cmakeListsWrapperFile": "/home/sofiya/repos/CSE622Project/app/.cxx/cxx/debug/x86_64/CMakeLists.txt",
+    "toolchainWrapperFile": "/home/sofiya/repos/CSE622Project/app/.cxx/cxx/debug/x86_64/android_gradle_build.toolchain.cmake",
+    "buildGenerationStateFile": "/home/sofiya/repos/CSE622Project/app/.cxx/cxx/debug/x86_64/build_generation_state.json",
+    "cacheKeyFile": "/home/sofiya/repos/CSE622Project/app/.cxx/cxx/debug/x86_64/compiler_cache_key.json",
+    "compilerCacheUseFile": "/home/sofiya/repos/CSE622Project/app/.cxx/cxx/debug/x86_64/compiler_cache_use.json",
+    "compilerCacheWriteFile": "/home/sofiya/repos/CSE622Project/app/.cxx/cxx/debug/x86_64/compiler_cache_write.json",
+    "toolchainSettingsFromCacheFile": "/home/sofiya/repos/CSE622Project/app/.cxx/cxx/debug/x86_64/compiler_settings_cache.cmake",
+    "cmakeWrappingBaseFolder": "."
+  },
+  "jsonGenerationLoggingRecordFile": "/home/sofiya/repos/CSE622Project/app/.cxx/cmake/debug/x86_64/json_generation_record.json",
+  "compileCommandsJsonFile": "/home/sofiya/repos/CSE622Project/app/.cxx/cmake/debug/x86_64/compile_commands.json"
+}

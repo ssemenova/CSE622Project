@@ -1,3 +1,6 @@
+# Server
+server/build/*
+server/Fabmap_Linux/Results/*
 # Built application files
 *.apk
 *.ap_
