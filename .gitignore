@@ -1,6 +1,8 @@
 # Server
 server/build/*
 server/Fabmap_Linux/Results/*
+server/imageDatabase/*
+server/testImages/*
 # Built application files
 *.apk
 *.ap_
