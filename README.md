@@ -26,7 +26,8 @@
 
 ### Server
 
-#### Build opencv from source
+#### (optional) Build opencv from source
+*The ant file refers to the built opencv in ```dependencies```, so you don't have to do this if that method works for you.*
 1. Download the opencv source code for **version 3** [here](https://opencv.org/releases.html) and the source code for the contrib repository **for the same version** [here](https://github.com/opencv/opencv_contrib) and move it onto your server
 2. On the server, run:
     ~~~
@@ -36,3 +37,7 @@
     $ cmake14 -D CMAKE_BUILD_TYPE=RELEASE -D OPENCV_ENABLE_NONFREE=ON -D -DENABLE_PRECOMPILED_HEADERS=OFF OPENCV_EXTRA_MODULES_PATH=path-to-where-you-downloaded-opencv_contrib/modules ..
     $ make -j7
     ~~~
+#### Create required image files
+1. You'll need an image database that contains images that are representative of places. This is just a folder with images. In the ant file, that folder is called ```imageDatabase/``` but you can change this.
+2. You might also want a ```testImages/``` folder, which ```Server.java``` can use as test examples of images to be localized.
+You can also unzip both the ```imageDatabase.zip``` folder and the ```testImages.zip``` folder and use those.
