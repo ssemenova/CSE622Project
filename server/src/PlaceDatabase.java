@@ -1,54 +1,60 @@
-import org.opencv.core.Core;
-import org.opencv.core.Mat;
-import org.opencv.core.MatOfKeyPoint;
-import org.opencv.core.CvType;
-import org.opencv.core.Scalar;
-import org.opencv.features2d.ORB;
-import org.opencv.imgproc.Imgproc;
-import org.opencv.core.Point;
-import org.opencv.core.Size;
-import org.opencv.imgcodecs.Imgcodecs;
-import org.opencv.features2d.Features2d;
-import org.opencv.highgui.HighGui;
+import org.opencv.core.*;
+import org.opencv.features2d.DescriptorMatcher;
 
-import java.awt.image.BufferedImage;
-import java.awt.image.DataBufferByte;
-import java.io.IOException;
 import java.io.File;
-import javax.imageio.ImageIO;
-import java.util.*; 
+import java.util.*;
 
 class PlaceDatabase {
     LinkedList<Image> images;
+    int DESCRIPTOR_MATCH_THRESHOLD = 5;
     
     public PlaceDatabase() {
-	images = new LinkedList<Image>();
+		images = new LinkedList<Image>();
     }
 
     public void addImage(MatOfKeyPoint keypoints, Mat descriptors) {
-	images.add(new Image(keypoints, descriptors));
+		images.add(new Image(keypoints, descriptors));
     }
 
     public void addImage(Image image) {
-	images.add(image);
+		images.add(image);
     }
 
-    public String toString() {
-	String result = "";
-	for (Image image : images) {
-	    result += image.keypoints + "\n";
+    public String getLocation(Image imToLocalize) {
+    	Image mostLikely = null;
+		List<DMatch> mostLikelyDescriptors = null;
+    	int lastHighest = 0;
+    	int i = 0;
+
+		for (Image candidate : images) {
+			List<DMatch> matches = candidate.computeMatches(imToLocalize, i);
+			if(matches.size() > lastHighest) {
+				mostLikely = candidate;
+				mostLikelyDescriptors = matches;
+				lastHighest = matches.size();
+			}
+			i++;
+		}
+
+		return mostLikely != null ? mostLikely.toString() : "Unknown";
 	}
-	return result;
+
+    public String toString() {
+		String result = "";
+		for (Image image : images) {
+			result += image.keypoints + "\n";
+		}
+		return result;
     }
 
     public void saveDescriptorsToImageFiles() {
-        File directory = new File("output/");
-	if (!directory.exists()){
-	    directory.mkdir();
-	}
-    
-	for (int i = 0; i < images.size(); i++) {
-	    images.get(i).drawImage(i + ".png");
-	}
+		File directory = new File("output/");
+		if (!directory.exists()){
+			directory.mkdir();
+		}
+
+		for (int i = 0; i < images.size(); i++) {
+			images.get(i).drawImage(i + ".png");
+		}
     }
 }
