@@ -1,9 +1,7 @@
 import org.opencv.calib3d.Calib3d;
 import org.opencv.core.*;
-import org.opencv.features2d.BFMatcher;
-import org.opencv.features2d.ORB;
+import org.opencv.features2d.*;
 import org.opencv.imgcodecs.Imgcodecs;
-import org.opencv.features2d.Features2d;
 
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
@@ -21,91 +19,47 @@ class Image{
     Mat descriptors;
     Mat imageMatrix;
     String name;
+    String placeName;
 
-    public Image(String filename) {
-    	this.imageMatrix = Imgcodecs.imread(filename, Imgcodecs.IMREAD_GRAYSCALE);
-		generateFeaturesForImage(imageMatrix);
+    public Image(String path, String filename, String placeName) {
+    	this.imageMatrix = Imgcodecs.imread(path);//, Imgcodecs.IMREAD_GRAYSCALE);
 		this.name = filename;
-    }
-    
-    public Image(MatOfKeyPoint keypoints, Mat descriptors) {
-		this.keypoints = keypoints;
-		this.descriptors = descriptors;
-    }
+		this.placeName = placeName;
 
-    public void generateFeaturesForImage(Mat imageMatrix) {
-		ORB orb = ORB.create();
-        this.keypoints = new MatOfKeyPoint();
-        this.descriptors = new Mat();
-		orb.detectAndCompute(imageMatrix, new Mat(), keypoints, descriptors);
+		ORB brisk = ORB.create();
+		this.keypoints = new MatOfKeyPoint();
+		this.descriptors = new Mat();
+		brisk.detectAndCompute(imageMatrix, new Mat(), keypoints, descriptors);
     }
 
-    public LinkedList<DMatch> computeHomography(Image otherImage, List<DMatch> matches) {
-		List<Point> otherImagePT = new ArrayList<>();
-		List<Point> thisPT = new ArrayList<>();
-		List<KeyPoint> listOfKeypointsObject = otherImage.keypoints.toList();
-		List<KeyPoint> listOfKeypointsScene = this.keypoints.toList();
-		for (int i = 0; i < matches.size(); i++) {
-			otherImagePT.add(listOfKeypointsObject.get(matches.get(i).queryIdx).pt);
-			thisPT.add(listOfKeypointsScene.get(matches.get(i).trainIdx).pt);
-		}
-
-		MatOfPoint2f objMat = new MatOfPoint2f();
-		MatOfPoint2f sceneMat = new MatOfPoint2f();
-		objMat.fromList(otherImagePT);
-		sceneMat.fromList(thisPT);
-
-		Mat mask = new Mat();
-		Calib3d.findHomography( objMat, sceneMat, Calib3d.RANSAC, 1.0, mask);
-
-		LinkedList<DMatch> better_matches = new LinkedList<DMatch>();
-		for (int i = 0; i < matches.size(); i++) {
-			if (mask.get(i, 0)[0] != 0.0) {
-				better_matches.add(matches.get(i));
-			}
-		}
-
-		return better_matches;
-	}
-
-    public List<DMatch> computeMatches(Image otherImage, int index) {
-		BFMatcher matcher = BFMatcher.create(NORM_HAMMING, true);
-		MatOfDMatch matches = new MatOfDMatch();
-		matcher.match(otherImage.descriptors, this.descriptors, matches);
-		List<DMatch> listMatches = matches.toList();
-
-		List<DMatch> thresholdedMatches = new ArrayList<>();
-		for (DMatch match : listMatches) {
-			if (match.distance < 60) {
-				thresholdedMatches.add(match);
-			}
-		}
-
-		LinkedList<DMatch> homographyInliers = this.computeHomography(otherImage, thresholdedMatches);
-
-		Mat outImage = new Mat();
-		MatOfDMatch better_matches_mat = new MatOfDMatch();
-		better_matches_mat.fromList(homographyInliers);
-
-		Scalar color = new Scalar( 255, 0, 0 );
-		Features2d.drawMatches(
-				otherImage.imageMatrix, otherImage.keypoints,
-				this.imageMatrix, this.keypoints,
-				better_matches_mat, outImage, color,
-				color);
-
-		try {
-			ImageIO.write(matToBufferedImage(outImage), "png", new File("output/" + index + ".png"));
-		} catch(IOException e) {}
-
-		return homographyInliers;
-	}
-    
     /*
-     * Draws this image and its keypoints to the specified filename.
-     * Use this for testing.
+     * Called by a Place object, at an attempt at localization, to retrieve a
+     * set of inlying points between this image and the test image.
      */
-    public void drawImage(String filename) {
+	public int featureComparison(Image otherImage, int index) {
+		BFMatcher matcher = BFMatcher.create(NORM_HAMMING);
+		List<MatOfDMatch> matches = new LinkedList<>();
+		matcher.knnMatch(otherImage.descriptors, this.descriptors, matches, 2);
+		List<DMatch> thresholdedMatches = thresholdKnnResults(matches);
+
+		if (thresholdedMatches.size() < 4) {
+			// Can't find a homography with fewer than four matches
+			return 0;
+		}
+
+		List<DMatch> inliersList = this.computeHomographyGivenMatches(otherImage, thresholdedMatches);
+
+		//drawInliers(inliersList, otherImage, index);
+
+		return inliersList.size();
+	}
+
+
+	/*
+	 * Draws this image and its keypoints to the specified filename.
+	 * Use this for testing.
+	 */
+	public void drawImage(String filename) {
 		Mat outputImage = new Mat();
 		Features2d.drawKeypoints(imageMatrix, keypoints, outputImage);
 		try {
@@ -113,8 +67,73 @@ class Image{
 		} catch(IOException e) {
 			System.out.println("IOException when drawing image");
 		}
-    }
+	}
 
+    /*
+     * Computes a homography, using RANSAC, for a given other image and set of matches
+     * between that image and this one. Returns the list of inliers.
+     */
+    private List<DMatch> computeHomographyGivenMatches(Image otherImage, List<DMatch> matches) {
+		List<Point> otherImagePT = new ArrayList<>();
+		List<Point> thisPT = new ArrayList<>();
+		List<KeyPoint> otherImageKP = otherImage.keypoints.toList();
+		List<KeyPoint> thisKP = this.keypoints.toList();
+		for (int i = 0; i < matches.size(); i++) {
+			otherImagePT.add(otherImageKP.get(matches.get(i).queryIdx).pt);
+			thisPT.add(thisKP.get(matches.get(i).trainIdx).pt);
+		}
+
+		MatOfPoint2f otherMat = new MatOfPoint2f(), thisMat = new MatOfPoint2f();
+		otherMat.fromList(otherImagePT);
+		thisMat.fromList(thisPT);
+		Mat mask = new Mat();
+		Calib3d.findHomography(otherMat, thisMat, Calib3d.RANSAC, 1.0, mask);
+
+		List<DMatch> inliers = new LinkedList<>();
+		for (int i = 0; i < matches.size(); i++) {
+			if (mask.get(i, 0)[0] != 0.0) {
+				inliers.add(matches.get(i));
+			}
+		}
+
+		return inliers;
+	}
+
+	private List<DMatch> thresholdKnnResults(List<MatOfDMatch> matches) {
+		float ratioThresh = 0.8f;
+		List<DMatch> thresholdedMatches = new ArrayList<>();
+		for (int i = 0; i < matches.size(); i++) {
+			if (matches.get(i).rows() > 1) {
+				DMatch[] m = matches.get(i).toArray();
+				if (m[0].distance < ratioThresh * m[1].distance) {
+					thresholdedMatches.add(m[0]);
+				}
+			}
+		}
+		return thresholdedMatches;
+	}
+
+	private void drawInliers(List<DMatch> inliersList, Image otherImage, int index) {
+		Mat outImage = new Mat();
+		MatOfDMatch inliersMat = new MatOfDMatch();
+		inliersMat.fromList(inliersList);
+		Scalar color = new Scalar( 255, 0, 0 );
+		Features2d.drawMatches(
+				otherImage.imageMatrix, otherImage.keypoints,
+				this.imageMatrix, this.keypoints,
+				inliersMat, outImage, color,
+				color);
+
+		try {
+			ImageIO.write(matToBufferedImage(outImage),
+					"png",
+					new File("output/" + placeName + "-" + index + ".png"));
+		} catch(IOException e) {}
+	}
+
+    /*
+	 * Converts a buffered image to a mat
+	 */
     private BufferedImage matToBufferedImage(Mat m) {
 		if (!m.empty()) {
 			int type = BufferedImage.TYPE_BYTE_GRAY;

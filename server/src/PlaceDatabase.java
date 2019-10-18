@@ -1,60 +1,54 @@
-import org.opencv.core.*;
-import org.opencv.features2d.DescriptorMatcher;
+import javafx.util.Pair;
 
 import java.io.File;
 import java.util.*;
+import java.util.stream.Collectors;
 
 class PlaceDatabase {
-    LinkedList<Image> images;
-    int DESCRIPTOR_MATCH_THRESHOLD = 5;
-    
-    public PlaceDatabase() {
-		images = new LinkedList<Image>();
-    }
+    LinkedList<Place> places;
+	int LOCALIZATION_THRESHOLD = 1;
 
-    public void addImage(MatOfKeyPoint keypoints, Mat descriptors) {
-		images.add(new Image(keypoints, descriptors));
-    }
+    public PlaceDatabase(String dbName) {
+		places = new LinkedList<>();
 
-    public void addImage(Image image) {
-		images.add(image);
-    }
+		File dbFolder = new File(dbName);
+		File[] placesFolder = dbFolder.listFiles();
 
-    public String getLocation(Image imToLocalize) {
-    	Image mostLikely = null;
-		List<DMatch> mostLikelyDescriptors = null;
-    	int lastHighest = 0;
-    	int i = 0;
+		for (File placeFolder : placesFolder) {
+			if (placeFolder.isDirectory()) {
+				File[] images = placeFolder.listFiles();
+				LinkedList<Image> allImagesForPlace = new LinkedList<>();
+				String placeName = placeFolder.getName();
 
-		for (Image candidate : images) {
-			List<DMatch> matches = candidate.computeMatches(imToLocalize, i);
-			if(matches.size() > lastHighest) {
-				mostLikely = candidate;
-				mostLikelyDescriptors = matches;
-				lastHighest = matches.size();
+				for (File image : images) {
+					String imageName = image.getName();
+					allImagesForPlace.add(new Image(
+							dbName + placeName + "/" + imageName,
+							imageName,
+							placeName));
+				}
+
+				places.add(new Place(allImagesForPlace, placeName));
 			}
-			i++;
 		}
 
-		return mostLikely != null ? mostLikely.toString() : "Unknown";
 	}
 
-    public String toString() {
-		String result = "";
-		for (Image image : images) {
-			result += image.keypoints + "\n";
-		}
-		return result;
-    }
+    public String getLocation(Image imToLocalize) {
+    	List<Pair<Place, Double>> probabilities = new LinkedList<>();
 
-    public void saveDescriptorsToImageFiles() {
-		File directory = new File("output/");
-		if (!directory.exists()){
-			directory.mkdir();
+		for (Place candidate : places) {
+			probabilities.add(new Pair(candidate, candidate.computeProbability(imToLocalize)));
 		}
 
-		for (int i = 0; i < images.size(); i++) {
-			images.get(i).drawImage(i + ".png");
+		List<Pair<Place, Double>> sortedPrs = probabilities.stream()
+				.sorted(Comparator.comparing(Pair::getValue))
+				.collect(Collectors.toList());
+
+		if (sortedPrs.get(sortedPrs.size() - 1).getValue() > LOCALIZATION_THRESHOLD) {
+			return sortedPrs.get(sortedPrs.size() - 1).getKey().name;
+		} else {
+			return "Unknown";
 		}
-    }
+	}
 }

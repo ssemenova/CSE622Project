@@ -9,34 +9,23 @@ class Server {
 		String testImageDir = args[0];
 		String imageDatabaseDir = args[1];
 
-		PlaceDatabase db = createPlaceDatabase(imageDatabaseDir);
+		System.out.println("CREATING DATABASE...");
+		PlaceDatabase db = new PlaceDatabase(imageDatabaseDir);
 
+		testImages(db, testImageDir);
+    }
+
+    public static void testImages(PlaceDatabase db, String testImageDir) {
+    	System.out.println("TESTING IMAGES IN " + testImageDir + " ...");
 		File testFolder = new File(testImageDir);
 		File[] imageFiles = testFolder.listFiles();
 		for (int i = 0; i < imageFiles.length; i++) {
 			if (imageFiles[i].isFile()) {
-				Image im = new Image(testImageDir + imageFiles[i].getName());
-				System.out.println("Image " + imageFiles[i].getName() + " is " + db.getLocation(im));
+				String imageName = imageFiles[i].getName();
+				Image im = new Image(testImageDir + imageName, imageName, "Unknown");
+				System.out.println("Image " + imageName + " is " + db.getLocation(im));
 			}
 		}
-    }
-
-    public static PlaceDatabase createPlaceDatabase(String imageDatabaseDir) {
-		System.out.println("CREATING DATABASE");
-		PlaceDatabase db = new PlaceDatabase();
-
-		File folder = new File(imageDatabaseDir);
-		File[] imageFiles = folder.listFiles();
-
-		for (int i = 0; i < imageFiles.length; i++) {
-			if (imageFiles[i].isFile()) {
-			Image image = new Image(imageDatabaseDir + imageFiles[i].getName());
-			db.addImage(image);
-			}
-		}
-
-		return db;
-    }
-
+	}
    
 }
