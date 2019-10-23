@@ -41,3 +41,20 @@
 1. You'll need an image database that contains images that are representative of places. This is just a folder with images. In the ant file, that folder is called ```imageDatabase/``` but you can change this.
 2. You might also want a ```testImages/``` folder, which ```Server.java``` can use as test examples of images to be localized.
 You can also unzip both the ```imageDatabase.zip``` folder and the ```testImages.zip``` folder and use those.
+
+#### Build
+There are two options: building on the command line, or building in an IDE.
+
+To build in an IDE:
+1. If you're using intelliJ, you can link the ant file as a build file for the project using [these](https://www.jetbrains.com/help/idea/adding-build-file-to-project.html) instructions. In the instructions, where it says "Click the generated build file", instead, click on ```build.xml``` in the ```server``` directory.
+2. Then, to create a configuration for the build file, in the ant tool window that you opened in the first step, right-click on ```Server > rebuild-run``` and click ```create run configuration```. Save the configuration in the window that pops up.
+3. Now you should be able to click the ```build``` and ```run``` buttons (the hammer and the play button) in the toolbar to build and run the program.
+
+To build in the command line:
+1. Navigate to ```server/``` and enter ```ant``` in that directory. This will rebuild and run the program.
+2. You should have jfx installed and linked in your path. If you don't, you'll get the error:
+   ~~~
+   [javac] .../CSE622Project/server/src/PlaceDatabase.java:1: error: package javafx.util does not exist
+   [javac] import javafx.util.Pair;
+   ~~~
+   If this isn't already configured for you, I recommend building in an IDE, as linking together openjfx and openjdk is a little hack-y, and an IDE will come with its own packaged version of java that already contains everything you need.

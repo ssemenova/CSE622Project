@@ -1,5 +1,4 @@
 import org.opencv.core.Core;
-import java.time.LocalTime;
 import java.io.File;
 
 class Server {
