@@ -1,5 +1,5 @@
 import org.opencv.core.Core;
-
+import java.time.LocalTime;
 import java.io.File;
 
 class Server {
@@ -9,23 +9,26 @@ class Server {
 		String testImageDir = args[0];
 		String imageDatabaseDir = args[1];
 
-		System.out.println("CREATING DATABASE...");
+		System.out.println("CREATING DATABASE");
 		PlaceDatabase db = new PlaceDatabase(imageDatabaseDir);
 
-		testImages(db, testImageDir);
+		long startTime = System.currentTimeMillis();
+		testImages(testImageDir, db);
+		long endTime = System.currentTimeMillis();
+		System.out.println(endTime - startTime);
     }
 
-    public static void testImages(PlaceDatabase db, String testImageDir) {
-    	System.out.println("TESTING IMAGES IN " + testImageDir + " ...");
+    public static void testImages(String testImageDir, PlaceDatabase db) {
 		File testFolder = new File(testImageDir);
 		File[] imageFiles = testFolder.listFiles();
+
 		for (int i = 0; i < imageFiles.length; i++) {
 			if (imageFiles[i].isFile()) {
-				String imageName = imageFiles[i].getName();
-				Image im = new Image(testImageDir + imageName, imageName, "Unknown");
-				System.out.println("Image " + imageName + " is " + db.getLocation(im));
+				Image im = new Image(testImageDir + imageFiles[i].getName(), imageFiles[i].getName(), null);
+				System.out.println("Image " + imageFiles[i].getName() + " is " + db.getLocation(im));
 			}
 		}
 	}
+
    
 }

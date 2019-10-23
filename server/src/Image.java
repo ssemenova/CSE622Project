@@ -20,11 +20,24 @@ class Image{
     Mat imageMatrix;
     String name;
     String placeName;
+    boolean testToggle;
 
-    public Image(String path, String filename, String placeName) {
+	public Image(String path, String filename, String placeName) {
+		this.imageMatrix = Imgcodecs.imread(path);//, Imgcodecs.IMREAD_GRAYSCALE);
+		this.name = filename;
+		this.placeName = placeName;
+
+		ORB brisk = ORB.create();
+		this.keypoints = new MatOfKeyPoint();
+		this.descriptors = new Mat();
+		brisk.detectAndCompute(imageMatrix, new Mat(), keypoints, descriptors);
+	}
+
+	public Image(String path, String filename, String placeName, boolean testToggle) {
     	this.imageMatrix = Imgcodecs.imread(path);//, Imgcodecs.IMREAD_GRAYSCALE);
 		this.name = filename;
 		this.placeName = placeName;
+		this.testToggle = testToggle;
 
 		ORB brisk = ORB.create();
 		this.keypoints = new MatOfKeyPoint();

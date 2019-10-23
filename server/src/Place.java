@@ -17,7 +17,9 @@ public class Place {
         int i = 0;
 
         for (Image image : images) {
-            inlierAvg += image.featureComparison(imToLocalize, i);
+            if (!image.testToggle) {
+                inlierAvg += image.featureComparison(imToLocalize, i);
+            }
             i++;
         }
 
