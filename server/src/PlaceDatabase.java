@@ -34,7 +34,7 @@ class PlaceDatabase {
 
 	}
 
-    public String getLocation(Image imToLocalize) {
+    public Place getLocation(Image imToLocalize) {
     	List<Pair<Place, Double>> probabilities = new LinkedList<>();
 
 		for (Place candidate : places) {
@@ -46,9 +46,9 @@ class PlaceDatabase {
 				.collect(Collectors.toList());
 
 		if (sortedPrs.get(sortedPrs.size() - 1).getValue() > LOCALIZATION_THRESHOLD) {
-			return sortedPrs.get(sortedPrs.size() - 1).getKey().name;
+			return sortedPrs.get(sortedPrs.size() - 1).getKey();
 		} else {
-			return "Unknown";
+			return null;
 		}
 	}
 }

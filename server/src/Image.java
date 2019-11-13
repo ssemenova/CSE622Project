@@ -13,6 +13,8 @@ import java.util.List;
 import javax.imageio.ImageIO;
 
 import static org.opencv.core.Core.NORM_HAMMING;
+import static org.opencv.imgcodecs.Imgcodecs.CV_LOAD_IMAGE_UNCHANGED;
+import static org.opencv.imgcodecs.Imgcodecs.imdecode;
 
 class Image{    
     MatOfKeyPoint keypoints;
@@ -20,36 +22,34 @@ class Image{
     Mat imageMatrix;
     String name;
     String placeName;
-    boolean testToggle;
+	List<DMatch> inliers;
 
 	public Image(String path, String filename, String placeName) {
 		this.imageMatrix = Imgcodecs.imread(path);//, Imgcodecs.IMREAD_GRAYSCALE);
 		this.name = filename;
 		this.placeName = placeName;
 
-		ORB brisk = ORB.create();
+		ORB orb = ORB.create();
 		this.keypoints = new MatOfKeyPoint();
 		this.descriptors = new Mat();
-		brisk.detectAndCompute(imageMatrix, new Mat(), keypoints, descriptors);
+		orb.detectAndCompute(imageMatrix, new Mat(), keypoints, descriptors);
 	}
 
-	public Image(String path, String filename, String placeName, boolean testToggle) {
-    	this.imageMatrix = Imgcodecs.imread(path);//, Imgcodecs.IMREAD_GRAYSCALE);
-		this.name = filename;
-		this.placeName = placeName;
-		this.testToggle = testToggle;
+	public Image(byte[] inputStream) {
+		this.imageMatrix = imdecode(new MatOfByte(inputStream), CV_LOAD_IMAGE_UNCHANGED);
+		this.name = "test image";
 
-		ORB brisk = ORB.create();
+		ORB orb = ORB.create();
 		this.keypoints = new MatOfKeyPoint();
 		this.descriptors = new Mat();
-		brisk.detectAndCompute(imageMatrix, new Mat(), keypoints, descriptors);
-    }
+		orb.detectAndCompute(imageMatrix, new Mat(), keypoints, descriptors);
+	}
 
-    /*
+	/*
      * Called by a Place object, at an attempt at localization, to retrieve a
      * set of inlying points between this image and the test image.
      */
-	public int featureComparison(Image otherImage, int index) {
+	public Mat featureComparison(Image otherImage, int index) {
 		BFMatcher matcher = BFMatcher.create(NORM_HAMMING);
 		List<MatOfDMatch> matches = new LinkedList<>();
 		matcher.knnMatch(otherImage.descriptors, this.descriptors, matches, 2);
@@ -57,14 +57,14 @@ class Image{
 
 		if (thresholdedMatches.size() < 4) {
 			// Can't find a homography with fewer than four matches
-			return 0;
+			return null;
 		}
 
-		List<DMatch> inliersList = this.computeHomographyGivenMatches(otherImage, thresholdedMatches);
+		Mat H = this.computeHomographyGivenMatches(otherImage, thresholdedMatches);
 
 		//drawInliers(inliersList, otherImage, index);
 
-		return inliersList.size();
+		return H;
 	}
 
 
@@ -86,7 +86,7 @@ class Image{
      * Computes a homography, using RANSAC, for a given other image and set of matches
      * between that image and this one. Returns the list of inliers.
      */
-    private List<DMatch> computeHomographyGivenMatches(Image otherImage, List<DMatch> matches) {
+    private Mat computeHomographyGivenMatches(Image otherImage, List<DMatch> matches) {
 		List<Point> otherImagePT = new ArrayList<>();
 		List<Point> thisPT = new ArrayList<>();
 		List<KeyPoint> otherImageKP = otherImage.keypoints.toList();
@@ -100,7 +100,7 @@ class Image{
 		otherMat.fromList(otherImagePT);
 		thisMat.fromList(thisPT);
 		Mat mask = new Mat();
-		Calib3d.findHomography(otherMat, thisMat, Calib3d.RANSAC, 1.0, mask);
+		Mat H = Calib3d.findHomography(otherMat, thisMat, Calib3d.RANSAC, 1.0, mask);
 
 		List<DMatch> inliers = new LinkedList<>();
 		for (int i = 0; i < matches.size(); i++) {
@@ -109,7 +109,8 @@ class Image{
 			}
 		}
 
-		return inliers;
+		this.inliers = inliers;
+		return H;
 	}
 
 	private List<DMatch> thresholdKnnResults(List<MatOfDMatch> matches) {
