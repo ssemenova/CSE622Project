@@ -1,4 +1,6 @@
+import org.opencv.calib3d.Calib3d;
 import org.opencv.core.Core;
+import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 
 import java.io.File;
@@ -8,6 +10,8 @@ import javax.imageio.ImageIO;
 
 import java.awt.image.BufferedImage;
 import java.io.*;
+import java.util.LinkedList;
+import java.util.List;
 
 class Server {
 	static{ System.loadLibrary(Core.NATIVE_LIBRARY_NAME); }
@@ -15,6 +19,11 @@ class Server {
 	private static final int PORT = 5001;
 	private static final String IP = "192.168.1.19";
 	public static void main(String[] args) {
+		double kFlat[] = { 3080, 0, 2016, 0, 3101.53, 1512, 0, 0, 1 };
+		Mat K = new Mat(3, 3, CvType.CV_32F);
+		int row = 0, col = 0;
+		K.put(row, col, kFlat);
+
 		String imageDatabaseDir = args[1];
 		System.out.println("CREATING DATABASE");
 		PlaceDatabase db = new PlaceDatabase(imageDatabaseDir);
@@ -43,7 +52,7 @@ class Server {
 				byte[] bytes = buffer.toByteArray();
 
 				Image currentImage = new Image(bytes);
-				testImagesSocket(currentImage, db);
+				testImagesSocket(currentImage, db, K);
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -56,11 +65,16 @@ class Server {
 		System.out.println(endTime - startTime);
 	}
 
-	public static String testImagesSocket(Image image, PlaceDatabase db) {
+	public static String testImagesSocket(Image image, PlaceDatabase db, Mat K) {
 		Place location =  db.getLocation(image);
 		Mat H = location.H;
 		System.out.println(H);
 		System.out.println("Image  is " + location.name);
+
+		List<Mat> rotations = new LinkedList<>();
+		List<Mat> translations = new LinkedList<>();
+		List<Mat> normals = new LinkedList<>();
+		Calib3d.decomposeHomographyMat(H, K, rotations, translations, normals);
 
 		return location.name;
 	}
