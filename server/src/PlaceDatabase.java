@@ -6,15 +6,37 @@ import java.util.stream.Collectors;
 
 class PlaceDatabase {
     LinkedList<Place> places;
-	int LOCALIZATION_THRESHOLD = 1;
+    LinkedList<Image> surfaces;
+	int LOCALIZATION_THRESHOLD = 10;
 
     public PlaceDatabase(String dbName) {
+		System.out.println("CREATING DATABASE");
 		places = new LinkedList<>();
+		surfaces = new LinkedList<>();
 
-		File dbFolder = new File(dbName);
-		File[] placesFolder = dbFolder.listFiles();
+		setUpSurfaces(dbName);
+		setUpPlaces(dbName);
+		System.out.println("DONE WITH DATABASE CREATION");
+    }
 
-		for (File placeFolder : placesFolder) {
+	private void setUpSurfaces(String dbName) {
+		File surfacesFolder = new File(dbName + "surfaces");
+		File[] surfacesList = surfacesFolder.listFiles();
+
+		for (File surface : surfacesList) {
+			this.surfaces.add(new Image(
+					dbName + "surfaces/" + surface.getName(),
+					surface.getName().stripTrailing(),
+					"null"
+			));
+		}
+	}
+
+	private void setUpPlaces(String dbName) {
+		File placesFolder= new File(dbName + "places");
+		File[] placesList = placesFolder.listFiles();
+
+		for (File placeFolder : placesList) {
 			if (placeFolder.isDirectory()) {
 				File[] images = placeFolder.listFiles();
 				LinkedList<Image> allImagesForPlace = new LinkedList<>();
@@ -23,15 +45,15 @@ class PlaceDatabase {
 				for (File image : images) {
 					String imageName = image.getName();
 					allImagesForPlace.add(new Image(
-							dbName + placeName + "/" + imageName,
+							dbName + "places/" + placeName + "/" + imageName,
 							imageName,
-							placeName));
+							placeName,
+							surfaces));
 				}
 
 				places.add(new Place(allImagesForPlace, placeName));
 			}
 		}
-
 	}
 
     public Place getLocation(Image imToLocalize) {

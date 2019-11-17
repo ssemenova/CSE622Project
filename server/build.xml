@@ -11,7 +11,7 @@
   <property name="classes.dir" value="${build.dir}/classes"/>
   <property name="jar.dir"     value="${build.dir}/jar"/>
   <property name="imagedir"    value="testImages/" />
-  <property name="imagedbdir"  value="imageDatabase/" />
+  <property name="imagedbdir"  value="../data/imageDatabase/" />
   
   <property name="main-class"  value="${ant.project.name}"/>
   
@@ -36,7 +36,6 @@
   <target name="run" depends="jar">
     <java fork="true" classname="${main-class}">
       <sysproperty key="java.library.path" path="../dependencies/opencv/lib/"/>
-      <arg value="${imagedir}"/>
       <arg value="${imagedbdir}"/>
       <classpath>
         <path refid="classpath"/>

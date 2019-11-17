@@ -1,13 +1,10 @@
-import org.opencv.core.DMatch;
 import org.opencv.core.Mat;
 
 import java.util.LinkedList;
-import java.util.List;
 
 public class Place {
     LinkedList<Image> images;
     String name;
-    int inlierAvg;
     Mat H;
 
     public Place(LinkedList<Image> images, String name) {
@@ -15,20 +12,18 @@ public class Place {
         this.name = name;
     }
 
-    public int computeProbability(Image imToLocalize) {
-        int inlierAvg = 0;
+    public double computeProbability(Image imToLocalize) {
+        double inlierAvg = 0;
         int inlierMax = 0;
-        Mat HforMax = null;
-        int i = 0;
+        Mat HforMax = new Mat();
 
         for (Image image : images) {
-            Mat H = image.featureComparison(imToLocalize, i);
-            if (inlierAvg > inlierMax) {
+            Mat H = image.featureComparison(imToLocalize);
+            if (H != null && inlierAvg > inlierMax) {
                 inlierMax = image.inliers.size();
                 HforMax = H;
             }
             inlierAvg += image.inliers.size();
-            i++;
         }
 
         inlierAvg /= images.size();

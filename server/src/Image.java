@@ -1,7 +1,9 @@
+import javafx.util.Pair;
 import org.opencv.calib3d.Calib3d;
 import org.opencv.core.*;
 import org.opencv.features2d.*;
 import org.opencv.imgcodecs.Imgcodecs;
+import org.opencv.imgproc.Imgproc;
 
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
@@ -23,9 +25,44 @@ class Image{
     String name;
     String placeName;
 	List<DMatch> inliers;
+	List<Pair<Image, Mat>> surfacesOccurring;
 
-	public Image(String path, String filename, String placeName) {
+	/* Use this constructor to set up place images in a place database */
+	public Image(String path, String filename, String placeName, List<Image> allSurfaces) {
 		this.imageMatrix = Imgcodecs.imread(path);//, Imgcodecs.IMREAD_GRAYSCALE);
+
+		if (this.imageMatrix.size().equals(new Size(0,0))) {
+			System.out.println("Could not read image!");
+		}
+
+		this.name = filename;
+		this.placeName = placeName;
+
+		ORB orb = ORB.create();
+		this.keypoints = new MatOfKeyPoint();
+		this.descriptors = new Mat();
+		orb.detectAndCompute(imageMatrix, new Mat(), keypoints, descriptors);
+
+		this.surfacesOccurring = new LinkedList<>();
+		int i = 0;
+		for (Image surface : allSurfaces) {
+			Mat H = featureComparison(surface, i);
+			if (H != null) {
+				surfacesOccurring.add(new Pair(surface, H));
+			}
+			i++;
+		}
+		System.out.println(surfacesOccurring);
+	}
+
+	/* Use this constructor to set up surfaces in an image database */
+	public Image(String path, String filename, String placeName) {
+		this.imageMatrix = Imgcodecs.imread(path);
+
+		if (this.imageMatrix.size().equals(new Size(0,0))) {
+			System.out.println("Could not read image!");
+		}
+
 		this.name = filename;
 		this.placeName = placeName;
 
@@ -35,6 +72,25 @@ class Image{
 		orb.detectAndCompute(imageMatrix, new Mat(), keypoints, descriptors);
 	}
 
+	/* Use this constructor to set up test images to localize from files */
+	public Image(String path, String filename) {
+		this.imageMatrix = Imgcodecs.imread(path);
+
+		if (this.imageMatrix.size().equals(new Size(0,0))) {
+			System.out.println("Could not read image!");
+		}
+
+		this.name = filename;
+
+		ORB orb = ORB.create();
+		this.keypoints = new MatOfKeyPoint();
+		this.descriptors = new Mat();
+		orb.detectAndCompute(imageMatrix, new Mat(), keypoints, descriptors);
+	}
+
+	/* Use this constructor to set up test images as they arrive from an inputstream
+	from an open socket.
+	 */
 	public Image(byte[] inputStream) {
 		this.imageMatrix = imdecode(new MatOfByte(inputStream), CV_LOAD_IMAGE_UNCHANGED);
 		this.name = "test image";
@@ -45,16 +101,18 @@ class Image{
 		orb.detectAndCompute(imageMatrix, new Mat(), keypoints, descriptors);
 	}
 
+
 	/*
      * Called by a Place object, at an attempt at localization, to retrieve a
      * set of inlying points between this image and the test image.
      */
-	public Mat featureComparison(Image otherImage, int index) {
+	public Mat featureComparison(Image otherImage) {
 		BFMatcher matcher = BFMatcher.create(NORM_HAMMING);
 		List<MatOfDMatch> matches = new LinkedList<>();
 		matcher.knnMatch(otherImage.descriptors, this.descriptors, matches, 2);
 		List<DMatch> thresholdedMatches = thresholdKnnResults(matches);
 
+		drawImage("test" + this.name);
 		if (thresholdedMatches.size() < 4) {
 			// Can't find a homography with fewer than four matches
 			return null;
@@ -62,45 +120,66 @@ class Image{
 
 		Mat H = this.computeHomographyGivenMatches(otherImage, thresholdedMatches);
 
-		//drawInliers(inliersList, otherImage, index);
+		return H;
+	}
+
+	/*
+	 * Called by a Place object, at an attempt at localization, to retrieve a
+	 * set of inlying points between this image and the test image.
+	 */
+	public Mat featureComparison(Image otherImage, int index) {
+		BFMatcher matcher = BFMatcher.create(NORM_HAMMING);
+		List<MatOfDMatch> matches = new LinkedList<>();
+		matcher.knnMatch(otherImage.descriptors, this.descriptors, matches, 2);
+		List<DMatch> thresholdedMatches = thresholdKnnResults(matches);
+
+		drawImage("test" + this.name);
+		if (thresholdedMatches.size() < 4) {
+			// Can't find a homography with fewer than four matches
+			return null;
+		}
+
+		Mat H = this.computeHomographyGivenMatches(otherImage, thresholdedMatches);
+
+
+
+		Mat newImage = new Mat();
+		Imgproc.warpPerspective(otherImage.imageMatrix, newImage, H, new Size(10000,10000));
+		try {
+			ImageIO.write(matToBufferedImage(newImage),
+					"png",
+					new File("output/" + placeName + "-" + index + ".png"));
+		}catch (IOException e ) {
+
+		}
+
+
+		//drawInliers(this.inliers, otherImage, index);
 
 		return H;
 	}
 
 
-	/*
-	 * Draws this image and its keypoints to the specified filename.
-	 * Use this for testing.
-	 */
-	public void drawImage(String filename) {
-		Mat outputImage = new Mat();
-		Features2d.drawKeypoints(imageMatrix, keypoints, outputImage);
-		try {
-			ImageIO.write(matToBufferedImage(outputImage), "png", new File("output/" + filename));
-		} catch(IOException e) {
-			System.out.println("IOException when drawing image");
-		}
-	}
 
-    /*
+	/*
      * Computes a homography, using RANSAC, for a given other image and set of matches
      * between that image and this one. Returns the list of inliers.
      */
     private Mat computeHomographyGivenMatches(Image otherImage, List<DMatch> matches) {
-		List<Point> otherImagePT = new ArrayList<>();
-		List<Point> thisPT = new ArrayList<>();
-		List<KeyPoint> otherImageKP = otherImage.keypoints.toList();
-		List<KeyPoint> thisKP = this.keypoints.toList();
+		List<Point> obj = new ArrayList<>();
+		List<Point> scene = new ArrayList<>();
+		List<KeyPoint> listOfKeypointsObject = otherImage.keypoints.toList();
+		List<KeyPoint> listOfKeypointsScene = this.keypoints.toList();
 		for (int i = 0; i < matches.size(); i++) {
-			otherImagePT.add(otherImageKP.get(matches.get(i).queryIdx).pt);
-			thisPT.add(thisKP.get(matches.get(i).trainIdx).pt);
+			obj.add(listOfKeypointsObject.get(matches.get(i).queryIdx).pt);
+			scene.add(listOfKeypointsScene.get(matches.get(i).trainIdx).pt);
 		}
-
-		MatOfPoint2f otherMat = new MatOfPoint2f(), thisMat = new MatOfPoint2f();
-		otherMat.fromList(otherImagePT);
-		thisMat.fromList(thisPT);
+		MatOfPoint2f objMat = new MatOfPoint2f(), sceneMat = new MatOfPoint2f();
+		objMat.fromList(obj);
+		sceneMat.fromList(scene);
+		double ransacReprojThreshold = 3.0;
 		Mat mask = new Mat();
-		Mat H = Calib3d.findHomography(otherMat, thisMat, Calib3d.RANSAC, 1.0, mask);
+		Mat H = Calib3d.findHomography( objMat, sceneMat, Calib3d.RANSAC, ransacReprojThreshold, mask);
 
 		List<DMatch> inliers = new LinkedList<>();
 		for (int i = 0; i < matches.size(); i++) {
@@ -110,12 +189,13 @@ class Image{
 		}
 
 		this.inliers = inliers;
-		return H;
+		return this.inliers.size() == 0 ? null : H;
 	}
 
 	private List<DMatch> thresholdKnnResults(List<MatOfDMatch> matches) {
 		float ratioThresh = 0.8f;
 		List<DMatch> thresholdedMatches = new ArrayList<>();
+
 		for (int i = 0; i < matches.size(); i++) {
 			if (matches.get(i).rows() > 1) {
 				DMatch[] m = matches.get(i).toArray();
@@ -127,7 +207,21 @@ class Image{
 		return thresholdedMatches;
 	}
 
-	private void drawInliers(List<DMatch> inliersList, Image otherImage, int index) {
+    /*
+     * Draws this image and its keypoints to the specified filename.
+     * Use this for testing.
+     */
+    private void drawImage(String filename) {
+        Mat outputImage = new Mat();
+        Features2d.drawKeypoints(imageMatrix, keypoints, outputImage);
+        try {
+            ImageIO.write(matToBufferedImage(outputImage), "png", new File("output/" + filename));
+        } catch(IOException e) {
+            System.out.println("IOException when drawing image");
+        }
+    }
+
+    private void drawInliers(List<DMatch> inliersList, Image otherImage, int index) {
 		Mat outImage = new Mat();
 		MatOfDMatch inliersMat = new MatOfDMatch();
 		inliersMat.fromList(inliersList);
