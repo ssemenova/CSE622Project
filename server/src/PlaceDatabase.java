@@ -1,21 +1,23 @@
 import javafx.util.Pair;
+import org.opencv.core.Mat;
 
-import java.io.File;
+import java.io.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
 class PlaceDatabase {
-    LinkedList<Place> places;
-    LinkedList<Image> surfaces;
+    HashMap<String, Image> images;
+    HashMap<String, Image> surfaces;
 	int LOCALIZATION_THRESHOLD = 10;
 
     public PlaceDatabase(String dbName) {
 		System.out.println("CREATING DATABASE");
-		places = new LinkedList<>();
-		surfaces = new LinkedList<>();
+		images = new HashMap<>();
+		surfaces = new HashMap<>();
 
 		setUpSurfaces(dbName);
 		setUpPlaces(dbName);
+		setUpSurfaceOccurrencesFromDataFile(dbName);
 		System.out.println("DONE WITH DATABASE CREATION");
     }
 
@@ -24,51 +26,77 @@ class PlaceDatabase {
 		File[] surfacesList = surfacesFolder.listFiles();
 
 		for (File surface : surfacesList) {
-			this.surfaces.add(new Image(
+			this.surfaces.put(surface.getName(),
+				new Image(
 					dbName + "surfaces/" + surface.getName(),
-					surface.getName().stripTrailing(),
-					"null"
+					surface.getName()
 			));
 		}
 	}
 
 	private void setUpPlaces(String dbName) {
 		File placesFolder= new File(dbName + "places");
-		File[] placesList = placesFolder.listFiles();
 
-		for (File placeFolder : placesList) {
-			if (placeFolder.isDirectory()) {
-				File[] images = placeFolder.listFiles();
-				LinkedList<Image> allImagesForPlace = new LinkedList<>();
-				String placeName = placeFolder.getName();
+		File[] imageFiles = placesFolder.listFiles();
+		this.images = new HashMap<>();
 
-				for (File image : images) {
-					String imageName = image.getName();
-					allImagesForPlace.add(new Image(
-							dbName + "places/" + placeName + "/" + imageName,
-							imageName,
-							placeName,
-							surfaces));
-				}
-
-				places.add(new Place(allImagesForPlace, placeName));
+		for (File imageFile : imageFiles) {
+			String imageFileName = imageFile.getName();
+			if (imageFileName.equals(".DS_Store") || imageFileName.contains("occurrence")) {
+				this.images.put(imageFileName,
+					new Image(
+						dbName + "places/" + "/" + imageFileName,
+						imageFileName));
 			}
 		}
 	}
 
-    public Place getLocation(Image imToLocalize) {
-    	List<Pair<Place, Double>> probabilities = new LinkedList<>();
+	private List[] setUpSurfaceOccurrencesFromDataFile(String dbName) {
+    	File file = new File(dbName + "occurrences.txt");
 
-		for (Place candidate : places) {
-			probabilities.add(new Pair(candidate, candidate.computeProbability(imToLocalize)));
+		try {
+			BufferedReader br = new BufferedReader(new FileReader(file));
+
+			String line;
+			while ((line = br.readLine()) != null) {
+				if (line.equals("---")) {
+					line = br.readLine();
+					Image im = images.get(Integer.parseInt(line));
+
+
+				}
+				//System.out.println(st);
+			}
+		} catch (FileNotFoundException e) {
+			System.out.println("Surfaces file not found!");
+		} catch (IOException e) {
+			System.out.println("Could not read from file!");
+		}
+		return null;
+	}
+
+    public Pair<Image, Mat> getLocation(Image imToLocalize) {
+    	double bestProbability = 0;
+    	Pair<Image, Mat> imageHomographyForBestP = null;
+
+		for (String imageName : this.images.keySet()) {
+			Image currentImage = this.images.get(imageName);
+
+			Pair<Mat, Double> featureComparisonForImage = currentImage.featureComparison(imToLocalize);
+			if (featureComparisonForImage != null) {
+				Mat currentH = featureComparisonForImage.getKey();
+				double currentP = featureComparisonForImage.getValue();
+
+				if (currentH != null && currentP > bestProbability) {
+					imageHomographyForBestP = new Pair(currentImage, currentH);
+					bestProbability = currentP;
+				}
+			}
 		}
 
-		List<Pair<Place, Double>> sortedPrs = probabilities.stream()
-				.sorted(Comparator.comparing(Pair::getValue))
-				.collect(Collectors.toList());
 
-		if (sortedPrs.get(sortedPrs.size() - 1).getValue() > LOCALIZATION_THRESHOLD) {
-			return sortedPrs.get(sortedPrs.size() - 1).getKey();
+		if (bestProbability > LOCALIZATION_THRESHOLD) {
+			return imageHomographyForBestP;
 		} else {
 			return null;
 		}

@@ -1,3 +1,4 @@
+import javafx.util.Pair;
 import org.opencv.calib3d.Calib3d;
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
@@ -22,9 +23,11 @@ class Server {
 	public static void main(String[] args) {
 		Mat K = getK();
 
+		System.out.println("Setting up database");
 		String imageDatabaseDir = args[0];
 		PlaceDatabase db = new PlaceDatabase(imageDatabaseDir);
 
+		System.out.println("Done with database");
 		Image image = new Image("../data/1.jpg", "1.jpg");
 		System.out.println(testImagesSocket(image, db, K));
 
@@ -67,9 +70,9 @@ class Server {
 	}*/
 
 	public static String testImagesSocket(Image image, PlaceDatabase db, Mat K) {
-		Place location =  db.getLocation(image);
+		Pair<Image, Mat> location =  db.getLocation(image);
 		if (location != null) {
-			Mat H = location.H;
+			Mat H = location.getValue();
 
 			List<Mat> rotations = new LinkedList<>();
 			List<Mat> translations = new LinkedList<>();
@@ -79,11 +82,11 @@ class Server {
 			return "None";
 		}
 
-		return location.name;
+		return location.getKey().name;
 	}
 
 	public static Mat getK() {
-		double kFlat[] = { 3080, 0, 2016, 0, 3101.53, 1512, 0, 0, 1 };
+		double kFlat[] = {1555.823494, 0, 959.5, 0, 1555.823494, 539.5, 0, 0, 1};
 		Mat K = new Mat(3, 3, CvType.CV_32F);
 		int row = 0, col = 0;
 		K.put(row, col, kFlat);
