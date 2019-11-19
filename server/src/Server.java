@@ -1,8 +1,7 @@
 import javafx.util.Pair;
 import org.opencv.calib3d.Calib3d;
-import org.opencv.core.Core;
-import org.opencv.core.CvType;
-import org.opencv.core.Mat;
+import org.opencv.core.*;
+import org.opencv.imgproc.Imgproc;
 
 import java.io.File;
 import java.net.*;
@@ -11,6 +10,7 @@ import javax.imageio.ImageIO;
 
 import java.awt.image.BufferedImage;
 import java.io.*;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -29,7 +29,6 @@ class Server {
 
 		System.out.println("Done with database");
 		Image image = new Image("../data/1.jpg", "1.jpg");
-		System.out.println(testImagesSocket(image, db, K));
 
 	}
 /*
@@ -69,20 +68,61 @@ class Server {
 		System.out.println(endTime - startTime);
 	}*/
 
-	public static String testImagesSocket(Image image, PlaceDatabase db, Mat K) {
-		Pair<Image, Mat> location =  db.getLocation(image);
-		if (location != null) {
-			Mat H = location.getValue();
+	public static void testImagesSocket(Image image, PlaceDatabase db, Mat K) {
+		List<Pair<Double, Pair<Image, Mat>>> results =  db.getLocation(image);
 
-			List<Mat> rotations = new LinkedList<>();
-			List<Mat> translations = new LinkedList<>();
-			List<Mat> normals = new LinkedList<>();
-			Calib3d.decomposeHomographyMat(H, K, rotations, translations, normals);
-		} else {
-			return "None";
+		// Get rotation and translation matrices from the image match to the
+		// input image using the homography found between them.
+		Mat image1ToInputH = results.get(0).getValue().getValue();
+		Image firstImage = results.get(0).getValue().getKey();
+
+		getComposedHomographiesForSurfaces();
+
+		List<Mat> image1ToInputRs = new LinkedList<>();
+		List<Mat> image1ToInputTs = new LinkedList<>();
+		Calib3d.decomposeHomographyMat(image1ToInputH, K, image1ToInputRs, image1ToInputTs, new LinkedList<>());
+
+		HashMap<String, Mat> finalRotations = new HashMap<>();
+		HashMap<String, Mat> finalTranslations = new HashMap<>();
+
+		// For each surface occurring in the original image, get the rotation and translation
+		// matrices from that surface to the match image, and save the composed R and T matrices
+		// from surface -> match image -> query image.
+		for (String surfaceName : firstImage.surfacesOccurring.keySet()) {
+			Pair<Mat, Mat> surfaceToImage1RAndT = firstImage.surfacesOccurring.get(surfaceName);
+
+			Mat multipliedR = new Mat(2, 3, CvType.CV_64F);
+			Mat multipliedT = new Mat(1, 3, CvType.CV_64F);
+			Core.multiply(surfaceToImage1RAndT.getKey(), image1ToInputRs.get(0), multipliedR);
+			Core.multiply(surfaceToImage1RAndT.getValue(), image1ToInputTs.get(0), multipliedT);
+
+			finalRotations.put(surfaceName, multipliedR);
+			finalTranslations.put(surfaceName, multipliedT);
+
+			MatOfPoint2f destImage = new MatOfPoint2f();
+
+			Calib3d.projectPoints(
+					new MatOfPoint3f(db.surfaces.get(surfaceName).imageMatrix),
+					multipliedR,
+					multipliedT,
+					K,
+					null,
+					destImage
+			);
+
+			System.out.println(destImage);
+/*
+			try {
+				ImageIO.write(matToBufferedImage(destImage),
+						"png",
+						new File("output/" + this.name + " " + surfaceDescriptor[0] + ".png"));
+			} catch (IOException e) {
+
+			}
+*/
+
 		}
 
-		return location.getKey().name;
 	}
 
 	public static Mat getK() {

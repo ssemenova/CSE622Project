@@ -8,7 +8,7 @@ import java.util.stream.Collectors;
 class PlaceDatabase {
     HashMap<String, Image> images;
     HashMap<String, Image> surfaces;
-	int LOCALIZATION_THRESHOLD = 10;
+	double LOCALIZATION_THRESHOLD = .5;
 
     public PlaceDatabase(String dbName) {
 		System.out.println("CREATING DATABASE");
@@ -26,11 +26,13 @@ class PlaceDatabase {
 		File[] surfacesList = surfacesFolder.listFiles();
 
 		for (File surface : surfacesList) {
-			this.surfaces.put(surface.getName(),
+			String surfaceFileName = surface.getName();
+			String surfaceName = surfaceFileName.substring(0, surfaceFileName.lastIndexOf('.'));
+			this.surfaces.put(surfaceName,
 				new Image(
 					dbName + "surfaces/" + surface.getName(),
-					surface.getName()
-			));
+					surfaceName
+				));
 		}
 	}
 
@@ -42,42 +44,40 @@ class PlaceDatabase {
 
 		for (File imageFile : imageFiles) {
 			String imageFileName = imageFile.getName();
-			if (imageFileName.equals(".DS_Store") || imageFileName.contains("occurrence")) {
-				this.images.put(imageFileName,
+			String imageName = imageFileName.substring(0, imageFileName.lastIndexOf('.'));
+			if (!imageFileName.equals(".DS_Store") && !imageFileName.contains("occurrence")) {
+				this.images.put(imageName,
 					new Image(
-						dbName + "places/" + "/" + imageFileName,
-						imageFileName));
+						dbName + "places/" + imageFileName,
+						imageName));
 			}
 		}
 	}
 
-	private List[] setUpSurfaceOccurrencesFromDataFile(String dbName) {
-    	File file = new File(dbName + "occurrences.txt");
+	private void setUpSurfaceOccurrencesFromDataFile(String dbName) {
+    	File file = new File(dbName + "places/surface_occurrences.txt");
 
 		try {
 			BufferedReader br = new BufferedReader(new FileReader(file));
 
 			String line;
 			while ((line = br.readLine()) != null) {
-				if (line.equals("---")) {
-					line = br.readLine();
-					Image im = images.get(Integer.parseInt(line));
-
-
+				Image im = this.images.get(line);
+				while (!(line = br.readLine()).equals("----")) {
+					String[] surfaceString = line.split("\\s+");
+					Image i = this.surfaces.get(surfaceString[0]);
+					im.addSurface(surfaceString, i);
 				}
-				//System.out.println(st);
 			}
 		} catch (FileNotFoundException e) {
 			System.out.println("Surfaces file not found!");
 		} catch (IOException e) {
 			System.out.println("Could not read from file!");
 		}
-		return null;
 	}
 
-    public Pair<Image, Mat> getLocation(Image imToLocalize) {
-    	double bestProbability = 0;
-    	Pair<Image, Mat> imageHomographyForBestP = null;
+    public List<Pair<Double, Pair<Image, Mat>>> getLocation(Image imToLocalize) {
+    	List<Pair<Double, Pair<Image, Mat>>> results = new LinkedList<>();
 
 		for (String imageName : this.images.keySet()) {
 			Image currentImage = this.images.get(imageName);
@@ -87,18 +87,20 @@ class PlaceDatabase {
 				Mat currentH = featureComparisonForImage.getKey();
 				double currentP = featureComparisonForImage.getValue();
 
-				if (currentH != null && currentP > bestProbability) {
-					imageHomographyForBestP = new Pair(currentImage, currentH);
-					bestProbability = currentP;
-				}
+				System.out.println(imageName + " " + currentP);
+
+				results.add(new Pair(
+						currentP,
+						new Pair(currentImage, currentH)
+				));
+
 			}
 		}
 
+		List<Pair<Double, Pair<Image, Mat>>> sortedResults = results.stream()
+				.sorted(Comparator.comparing(Pair::getKey))
+				.collect(Collectors.toList());
 
-		if (bestProbability > LOCALIZATION_THRESHOLD) {
-			return imageHomographyForBestP;
-		} else {
-			return null;
-		}
+		return sortedResults;
 	}
 }
