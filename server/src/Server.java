@@ -18,17 +18,16 @@ class Server {
 
 		System.out.println("Done with database");
 		Image image = new Image("../data/1.jpg", "1.jpg");
-		String response = serializeResponse(db.getRAndTForInputImage(image, K));
+		String response = serializeResponse(db.getModelMatricesForImage(image, K));
 
 	}
 
-	public static String serializeResponse(HashMap<String, Pair<Mat, Mat>> response) {
+	public static String serializeResponse(HashMap<String, Mat> response) {
 		String stringResponse = "";
 
 		for (String surface : response.keySet()) {
 			stringResponse += surface + "\n";
-			stringResponse += response.get(surface).getKey().dump() + "\n";
-			stringResponse += response.get(surface).getValue().dump() + "\n";
+			stringResponse += response.get(surface).dump() + "\n";
 		}
 
 		System.out.println(stringResponse);

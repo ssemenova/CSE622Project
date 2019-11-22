@@ -26,6 +26,7 @@ class Image {
 	int height;
 	int width;
 	HashMap<String, Pair<Mat, Mat>> surfacesOccurring; // uninitialized if the image is a surface
+	HashMap<String, Mat> surfacesOccurringH;
 
 	/* Use this constructor to set up place images in a place database */
 	public Image(String path, String filename) {
@@ -39,6 +40,7 @@ class Image {
 		this.width = imageMatrix.width();
 		this.name = filename;
 		this.surfacesOccurring = new HashMap<>();
+		this.surfacesOccurringH = new HashMap<>();
 
 		detectKeypointsForSetup();
 	}
@@ -98,6 +100,8 @@ class Image {
 		}
 		 */
 
+		this.surfacesOccurringH.put(surfaceDescriptor[0], H);
+
 		// Decompose homography into Rs and Ts. Just accept the first solution.
 		List<Mat> Rs = new LinkedList<>();
 		List<Mat> Ts = new LinkedList<>();
@@ -136,7 +140,7 @@ class Image {
 		Mat H = homographyResults.getKey();
 		List<DMatch> inliers = homographyResults.getValue();
 
-		drawInliers(inliers, otherImage, 1);
+		//drawInliers(inliers, otherImage, 1);
 
 		// Might be better to use a measure of probability that isn't just
 		// how many feature matches there were.

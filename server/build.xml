@@ -3,8 +3,10 @@
   <property name="src.dir"     value="src"/>
   
   <property name="lib.dir"     value="../dependencies/opencv/bin/"/>
+  <property name="apache.dir"  value="../dependencies/commons-math3-3.6.1"/>
   <path id="classpath">
     <fileset dir="${lib.dir}" includes="**/*.jar"/>
+    <fileset dir="${apache.dir}" includes="**/*.jar" />
   </path>
   
   <property name="build.dir"   value="build"/>
