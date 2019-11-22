@@ -15,10 +15,8 @@ import java.util.LinkedList;
 import java.util.List;
 import javax.imageio.ImageIO;
 
-import static org.opencv.core.Core.NORM_HAMMING;
 import static org.opencv.imgcodecs.Imgcodecs.CV_LOAD_IMAGE_UNCHANGED;
 import static org.opencv.imgcodecs.Imgcodecs.imdecode;
-import static org.opencv.features2d.ORB.FAST_SCORE;
 
 class Image {
 	MatOfKeyPoint keypoints;
@@ -261,5 +259,4 @@ class Image {
 		K.put(row, col, kFlat);
 		return K;
 	}
-
 }
