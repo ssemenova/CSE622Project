@@ -95,6 +95,11 @@ class PlaceDatabase {
 	 */
 	public HashMap<String, Mat> getModelMatricesForImage(Image image, Mat K) {
 		List<Pair<Double, Pair<Image, Mat>>> results =  getLocationList(image);
+
+		if (results.size() == 0) {
+			return new HashMap<>();
+		}
+
 		HashMap<String, Mat> modelMatrices = new HashMap<>();
 
 		// Get rotation and translation matrices from the image match to the
@@ -116,7 +121,7 @@ class PlaceDatabase {
 
 		// Add any surfaces that were not seen in the first image but that may be
 		// occurring in the input image.
-		boolean stop = false; int i = 1;
+		boolean stop = results.size() == 1; int i = 1;
 
 		while (!stop) {
 			Image currentImage = getImageFromLocationList(i, results);

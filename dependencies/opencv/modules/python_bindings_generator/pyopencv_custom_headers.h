@@ -1,0 +1,11 @@
+//user-defined headers
+#include "/Users/sofiya/opencv/opencv-3.4.8/modules/core/misc/python/pyopencv_async.hpp"
+#include "/Users/sofiya/opencv/opencv-3.4.8/modules/core/misc/python/pyopencv_umat.hpp"
+#include "/Users/sofiya/opencv/opencv-3.4.8/modules/flann/misc/python/pyopencv_flann.hpp"
+#include "/Users/sofiya/opencv/opencv-3.4.8/modules/ml/misc/python/pyopencv_ml.hpp"
+#include "/Users/sofiya/opencv/opencv-3.4.8/modules/dnn/misc/python/pyopencv_dnn.hpp"
+#include "/Users/sofiya/opencv/opencv-3.4.8/modules/features2d/misc/python/pyopencv_features2d.hpp"
+#include "/Users/sofiya/opencv/opencv_contrib/modules/line_descriptor/misc/python/pyopencv_LSDDetector.hpp"
+#include "/Users/sofiya/opencv/opencv-3.4.8/modules/videoio/misc/python/pyopencv_videoio.hpp"
+#include "/Users/sofiya/opencv/opencv_contrib/modules/rgbd/misc/python/pyopencv_linemod.hpp"
+#include "/Users/sofiya/opencv/opencv-3.4.8/modules/stitching/misc/python/pyopencv_stitching.hpp"
