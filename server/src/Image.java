@@ -136,11 +136,16 @@ class Image {
 			return null;
 		}
 
+
 		Pair<Mat, List<DMatch>> homographyResults = this.computeHomographyGivenMatches(otherImage, thresholdedMatches);
+		if (homographyResults == null) {
+			return null;
+		}
+
 		Mat H = homographyResults.getKey();
 		List<DMatch> inliers = homographyResults.getValue();
 
-		//drawInliers(inliers, otherImage, 1);
+		drawInliers(inliers, otherImage, 1);
 
 		// Might be better to use a measure of probability that isn't just
 		// how many feature matches there were.

@@ -162,8 +162,12 @@ class PlaceDatabase {
 	private List<Pair<Double, Pair<Image, Mat>>> getLocationList(Image imToLocalize) {
 		List<Pair<Double, Pair<Image, Mat>>> results = new LinkedList<>();
 
+		System.out.println(this.images.keySet());
+
 		for (String imageName : this.images.keySet()) {
 			Image currentImage = this.images.get(imageName);
+
+			System.out.println(imageName);
 
 			Pair<Mat, Double> featureComparisonForImage = currentImage.featureComparison(imToLocalize);
 			if (featureComparisonForImage != null) {
