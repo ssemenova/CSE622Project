@@ -15,8 +15,9 @@ import java.util.LinkedList;
 import java.util.List;
 import javax.imageio.ImageIO;
 
-import static org.opencv.imgcodecs.Imgcodecs.CV_LOAD_IMAGE_UNCHANGED;
-import static org.opencv.imgcodecs.Imgcodecs.imdecode;
+import static org.opencv.core.Core.ROTATE_90_CLOCKWISE;
+import static org.opencv.imgcodecs.Imgcodecs.*;
+import static org.opencv.imgproc.Imgproc.COLOR_BGR2BGRA;
 
 class Image {
 	MatOfKeyPoint keypoints;
@@ -28,26 +29,41 @@ class Image {
 	HashMap<String, Mat> surfacesOccurringH;
 
 	/* Use this constructor to set up place images in a place database */
-	public Image(String path, String filename) {
-		this.imageMatrix = Imgcodecs.imread(path);//, Imgcodecs.IMREAD_GRAYSCALE);
+	public Image(String path, String filename, boolean surface) {
+		if (! surface) {
+			this.imageMatrix = Imgcodecs.imread(path);//, Imgcodecs.IMREAD_GRAYSCALE);
+			//Core.rotate(Imgcodecs.imread(path), this.imageMatrix, ROTATE_90_CLOCKWISE);
+		} else {
+			this.imageMatrix = Imgcodecs.imread(path);
+		}
 
 		if (this.imageMatrix.size().equals(new Size(0, 0))) {
 			System.out.println("Could not read image " + filename);
+		} else {
+
+			this.height = (double) imageMatrix.height();
+			this.width = (double) imageMatrix.width();
+			this.name = filename;
+			this.surfacesOccurringH = new HashMap<>();
+
+			//Imgcodecs.imwrite("raw " + this.name + ".png", this.imageMatrix);
+		/*
+		try {
+			ImageIO.write(matToBufferedImage(imageMatrix), "png", new File("output/" + filename));
+		} catch(IOException e) {
+			System.out.println("IOException when drawing image");
+		}*/
+
+
+			detectKeypointsForSetup();
 		}
-
-		this.height = (double) imageMatrix.height();
-		this.width = (double) imageMatrix.width();
-		this.name = filename;
-		this.surfacesOccurringH = new HashMap<>();
-
-		detectKeypointsForSetup();
 	}
 
 	/* Use this constructor to set up test images as they arrive from an inputstream
 	from an open socket.
 	 */
 	public Image(byte[] inputStream) {
-		this.imageMatrix = imdecode(new MatOfByte(inputStream), CV_LOAD_IMAGE_UNCHANGED);
+		this.imageMatrix = imdecode(new MatOfByte(inputStream), IMREAD_UNCHANGED);
 		this.name = "test image";
 		this.height = (double) imageMatrix.height();
 		this.width = (double) imageMatrix.width();
@@ -282,7 +298,7 @@ class Image {
 		if (!m.empty()) {
 			int type = BufferedImage.TYPE_BYTE_GRAY;
 			if (m.channels() > 1) {
-				type = BufferedImage.TYPE_3BYTE_BGR;
+				type = BufferedImage.TYPE_4BYTE_ABGR;
 			}
 			int bufferSize = m.channels() * m.cols() * m.rows();
 			byte[] b = new byte[bufferSize];

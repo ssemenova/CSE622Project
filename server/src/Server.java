@@ -1,13 +1,12 @@
-import javafx.util.Pair;
 import org.opencv.core.*;
+import org.opencv.imgcodecs.Imgcodecs;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.IOException;
+import java.io.*;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.HashMap;
+
+import static org.opencv.core.CvType.CV_8UC3;
 
 class Server {
 	static{ System.loadLibrary(Core.NATIVE_LIBRARY_NAME); }
@@ -49,10 +48,15 @@ class Server {
 				Image currentImage = new Image(bytes);
 
 				long startTime = System.nanoTime();
-				String response = serializeResponse(db.getModelMatricesForImage(currentImage));
+				Mat response = db.getModelMatricesForImage(currentImage);
+				Imgcodecs.imwrite("response.png", response);
 				long endTime = System.nanoTime();
 				System.out.println("all " + (endTime - startTime) / 1000000);
 
+
+				// read from response
+
+				client.close();
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -63,17 +67,6 @@ class Server {
 
 	}
 
-	public static String serializeResponse(HashMap<String, Mat> response) {
-		String stringResponse = "";
-
-		for (String surface : response.keySet()) {
-			stringResponse += surface + "\n";
-			stringResponse += response.get(surface).dump() + "\n";
-		}
-
-		System.out.println(stringResponse);
-		return stringResponse;
-	}
 
 
 	public static Mat getK() {

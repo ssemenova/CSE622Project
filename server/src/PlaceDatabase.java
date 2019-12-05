@@ -3,6 +3,7 @@ import org.apache.commons.math3.linear.MatrixUtils;
 import org.apache.commons.math3.linear.RealMatrix;
 import org.opencv.calib3d.Calib3d;
 import org.opencv.core.*;
+import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 
 import javax.imageio.ImageIO;
@@ -13,8 +14,10 @@ import java.util.*;
 import java.util.stream.Collectors;
 import org.apache.commons.math3.linear.SingularValueDecomposition;
 
-import static org.opencv.core.Core.DECOMP_SVD;
+import static org.opencv.core.Core.*;
 import static org.opencv.core.CvType.CV_64F;
+import static org.opencv.imgproc.Imgproc.INTER_LINEAR;
+import static org.opencv.imgproc.Imgproc.INTER_NEAREST;
 
 class PlaceDatabase {
     HashMap<String, Image> images;
@@ -47,7 +50,8 @@ class PlaceDatabase {
 			this.surfaces.put(surfaceName,
 				new Image(
 					dbName + "surfaces/" + surface.getName(),
-					surfaceName
+					surfaceName,
+					true
 				));
 		}
 	}
@@ -65,7 +69,8 @@ class PlaceDatabase {
 				this.images.put(imageName,
 					new Image(
 						dbName + "places/" + imageFileName,
-						imageName));
+						imageName,
+						false));
 			}
 		}
 	}
@@ -96,19 +101,19 @@ class PlaceDatabase {
 	 * Public method for Server to call.
 	 * Will return a Map from SurfaceName->{model matrix}
 	 */
-	public HashMap<String, Mat> getModelMatricesForImage(Image queryImage) {
+	public Mat getModelMatricesForImage(Image queryImage) {
 		List<Pair<Double, Pair<Image, Mat>>> results =  getLocationList(queryImage);
 
 		if (results.size() == 0) {
-			return new HashMap<>();
+			return null;
 		}
 
 		HashMap<String, Mat> modelMatrices = new HashMap<>();
 
 		// Get rotation and translation matrices from the image match to the
 		// input image using the homography found between them.
-		Image firstImage = getImageFromLocationList(0, results);
-		Mat HMatchToQuery = getHFromLocationList(0, results);
+		Image firstImage = getImageFromLocationList(results.size() - 1, results);
+		Mat HMatchToQuery = getHFromLocationList(results.size() - 1, results);
 
 		// For each surface occurring in the original image, get the rotation and translation
 		// matrices from that surface to the match image, and use the composed R and T matrices
@@ -118,18 +123,20 @@ class PlaceDatabase {
 
 			modelMatrices.put(
 				surfaceName,
-				getModelMatrix(HMatchToQuery, HSurfaceToMatch, firstImage, this.surfaces.get(surfaceName))
+				getModelMatrix(HMatchToQuery, HSurfaceToMatch, firstImage, this.surfaces.get(surfaceName), queryImage)
 			);
+
 
 		}
 
 		// Add any surfaces that were not seen in the first image but that may be
 		// occurring in the input image.
-		boolean stop = results.size() == 1; int i = 1;
+		int i = 1;
+		boolean stop = i == results.size() - 1;
 
 		while (!stop) {
-			Image currentImage = getImageFromLocationList(i, results);
-			double probability = getProbabilityFromLocationList(i, results);
+			Image currentImage = getImageFromLocationList(results.size() - i, results);
+			double probability = getProbabilityFromLocationList(results.size() - i, results);
 
 			if (probability < PROBABILITY_THRESHOLD || i == results.size() - 1) {
 				stop = true;
@@ -142,7 +149,7 @@ class PlaceDatabase {
 
 						modelMatrices.put(
 							surfaceName,
-							getModelMatrix(HMatchToQuery, HSurfaceToMatch, currentImage, this.surfaces.get(surfaceName))
+							getModelMatrix(HMatchToQuery, HSurfaceToMatch, currentImage, this.surfaces.get(surfaceName), queryImage)
 						);
 					}
 				}
@@ -151,7 +158,8 @@ class PlaceDatabase {
 			}
 		}
 
-		return modelMatrices;
+
+		return combineImages(modelMatrices, queryImage);
 	}
 
 	/*
@@ -209,7 +217,7 @@ class PlaceDatabase {
 		return response;
 	}
 
-	private Mat getModelMatrix(Mat HMatchToQuery, Mat HSurfaceToMatch, Image matchImage, Image surfaceImage) {
+	private Mat getModelMatrix(Mat HMatchToQuery, Mat HSurfaceToMatch, Image matchImage, Image surfaceImage, Image queryImage) {
 		Mat modelMatrix = new Mat(4, 4, CV_64F);
 
 		// Multiply the surface->image 1 homography with the image 1->query image homography
@@ -438,32 +446,48 @@ class PlaceDatabase {
 		return rm;
 	}
 
+	private Mat combineImages(HashMap<String, Mat> modelMatrices, Image queryImage) {
+		Mat surfaceWarped = new Mat();
+		Mat matrix = new Mat();
+
+		for (String surface : modelMatrices.keySet()) {
+			Mat surfaceMat = this.surfaces.get(surface).imageMatrix;
+
+			Mat mask = new Mat(new Size(surfaceMat.cols(), surfaceMat.rows()), CvType.CV_8UC1);
+			mask.setTo(new Scalar(255));
+			Mat maskWarped = new Mat();
+			Imgproc.warpPerspective(
+				mask,
+				maskWarped,
+				modelMatrices.get(surface),
+				queryImage.imageMatrix.size(),
+				INTER_NEAREST,
+				BORDER_CONSTANT,
+				new Scalar(0, 0, 0)
+			);
+
+			Imgproc.warpPerspective(
+				surfaceMat,
+				surfaceWarped,
+				modelMatrices.get(surface),
+				queryImage.imageMatrix.size(),
+				INTER_NEAREST,
+				BORDER_CONSTANT,
+				new Scalar(255, 255,255)
+			);
+
+			surfaceWarped.copyTo(queryImage.imageMatrix, maskWarped);
+		}
+
+		//Imgcodecs.imwrite("resultnew.jpg", queryImage.imageMatrix);
+
+		return queryImage.imageMatrix;
+	}
+
 	/**** For debugging ****/
 
-	private void printImage(Mat H2, Mat H1, String surfaceName, Image im) {
-		Mat destImage = new Mat();
+	private void printImage(Mat H, Image surface, Image queryImage) {
 
-		Imgproc.warpPerspective(
-				this.surfaces.get(surfaceName).imageMatrix,
-				destImage,
-				H1,
-				im.imageMatrix.size());
 
-		System.out.println("Homography one");
-
-		Mat finalImage = new Mat();
-		Imgproc.warpPerspective(
-				destImage,
-				finalImage,
-				H2,
-				im.imageMatrix.size());
-
-		try {
-			ImageIO.write(matToBufferedImage(finalImage),
-					"png",
-					new File("output/" + surfaceName + ".png"));
-		} catch (IOException e) {
-
-		}
 	}
 }
