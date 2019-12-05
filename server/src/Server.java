@@ -1,6 +1,12 @@
 import javafx.util.Pair;
 import org.opencv.core.*;
 
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.HashMap;
 
 class Server {
@@ -43,7 +49,7 @@ class Server {
 				Image currentImage = new Image(bytes);
 
 				long startTime = System.nanoTime();
-				String response = serializeResponse(db.getModelMatricesForImage(image));
+				String response = serializeResponse(db.getModelMatricesForImage(currentImage));
 				long endTime = System.nanoTime();
 				System.out.println("all " + (endTime - startTime) / 1000000);
 
