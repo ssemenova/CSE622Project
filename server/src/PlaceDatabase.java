@@ -97,7 +97,7 @@ class PlaceDatabase {
 	 * Will return a Map from SurfaceName->{model matrix}
 	 */
 	public HashMap<String, Mat> getModelMatricesForImage(Image queryImage) {
-		List<Pair<Double, Pair<Image, Mat>>> results =  getLocationList(queryImage);
+		List<Pair<Double, Pair<Image, Pair<Mat, Mat>>>> results =  getLocationList(queryImage);
 
 		if (results.size() == 0) {
 			return new HashMap<>();
@@ -107,18 +107,19 @@ class PlaceDatabase {
 
 		// Get rotation and translation matrices from the image match to the
 		// input image using the homography found between them.
-		Image firstImage = getImageFromLocationList(0, results);
-		Mat HMatchToQuery = getHFromLocationList(0, results);
+		Image firstImage = getImageFromLocationList(results.size() - 1, results);
+		Pair<Mat, Mat> RTMatchToQuery = getRTFromLocationList(0, results);
 
 		// For each surface occurring in the original image, get the rotation and translation
 		// matrices from that surface to the match image, and use the composed R and T matrices
 		// from surface -> match image -> query image to create a model matrix
-		for (String surfaceName : firstImage.surfacesOccurringH.keySet()) {
-			Mat HSurfaceToMatch = firstImage.surfacesOccurringH.get(surfaceName);
+		for (String surfaceName : firstImage.surfacesOccurringRandT.keySet()) {
+			Pair<Mat, Mat> RTSurfaceToMatch = firstImage.surfacesOccurringRandT.get(surfaceName);
 
+			System.out.println(firstImage);
 			modelMatrices.put(
 				surfaceName,
-				getModelMatrix(HMatchToQuery, HSurfaceToMatch, firstImage, this.surfaces.get(surfaceName))
+				getModelMatrix(RTMatchToQuery, RTSurfaceToMatch)
 			);
 
 			/*
@@ -132,24 +133,25 @@ class PlaceDatabase {
 
 		// Add any surfaces that were not seen in the first image but that may be
 		// occurring in the input image.
-		boolean stop = results.size() == 1; int i = 1;
+		boolean stop = results.size() == 2; int i = 1;
 
 		while (!stop) {
-			Image currentImage = getImageFromLocationList(i, results);
+			Image currentImage = getImageFromLocationList(results.size() - i, results);
 			double probability = getProbabilityFromLocationList(i, results);
 
 			if (probability < PROBABILITY_THRESHOLD || i == results.size() - 1) {
 				stop = true;
 			} else {
-				HMatchToQuery = getHFromLocationList(i, results);
+				RTMatchToQuery = getRTFromLocationList(i, results);
 
-				for (String surfaceName : currentImage.surfacesOccurringH.keySet()) {
-					if (!firstImage.surfacesOccurringH.containsKey(surfaceName)) {
-						Mat HSurfaceToMatch = currentImage.surfacesOccurringH.get(surfaceName);
+
+				for (String surfaceName : currentImage.surfacesOccurringRandT.keySet()) {
+					if (!firstImage.surfacesOccurringRandT.containsKey(surfaceName)) {
+						Pair<Mat, Mat> RTSurfaceToMatch = currentImage.surfacesOccurringRandT.get(surfaceName);
 
 						modelMatrices.put(
 							surfaceName,
-							getModelMatrix(HMatchToQuery, HSurfaceToMatch, currentImage, this.surfaces.get(surfaceName))
+							getModelMatrix(RTMatchToQuery, RTSurfaceToMatch)
 						);
 
 						/*
@@ -175,44 +177,47 @@ class PlaceDatabase {
 	 * and the mat is the homography translating the comparison image to the input image.
 	 * The list is sorted by probability.
 	 */
-	private List<Pair<Double, Pair<Image, Mat>>> getLocationList(Image imToLocalize) {
-		List<Pair<Double, Pair<Image, Mat>>> results = new LinkedList<>();
+	private List<Pair<Double, Pair<Image, Pair<Mat, Mat>>>> getLocationList(Image imToLocalize) {
+		List<Pair<Double, Pair<Image, Pair<Mat, Mat>>>> results = new LinkedList<>();
 
 		int i = 0;
 
 		for (String imageName : this.images.keySet()) {
 			Image currentImage = this.images.get(imageName);
 
-			Pair<Mat, Double> featureComparisonForImage = currentImage.featureComparison(imToLocalize, i);
+			Pair<Double, Pair<Mat, Mat>> featureComparisonForImage = currentImage.featureComparison(imToLocalize, i);
 			if (featureComparisonForImage != null) {
-				Mat currentH = featureComparisonForImage.getKey();
-				double currentP = featureComparisonForImage.getValue();
+				Pair<Mat, Mat> RandT = featureComparisonForImage.getValue();
+				double currentP = featureComparisonForImage.getKey();
 
 				results.add(new Pair(
 						currentP,
-						new Pair(currentImage, currentH)
+						new Pair(currentImage, RandT)
 				));
 
 			}
 			i++;
 		}
 
-		List<Pair<Double, Pair<Image, Mat>>> sortedResults = results.stream()
+		List<Pair<Double, Pair<Image, Pair<Mat, Mat>>>> sortedResults = results.stream()
 				.sorted(Comparator.comparing(Pair::getKey))
 				.collect(Collectors.toList());
+
+		System.out.println(sortedResults.get(0).getKey());
+		System.out.println(sortedResults.get(sortedResults.size() - 1).getKey());
 
 		return sortedResults;
 	}
 
-	private double getProbabilityFromLocationList(int index, List<Pair<Double, Pair<Image, Mat>>> results) {
+	private double getProbabilityFromLocationList(int index, List<Pair<Double, Pair<Image, Pair<Mat, Mat>>>> results) {
 		return results.get(index).getKey();
 	}
 
-	private Image getImageFromLocationList(int index, List<Pair<Double, Pair<Image, Mat>>> results) {
+	private Image getImageFromLocationList(int index, List<Pair<Double, Pair<Image, Pair<Mat, Mat>>>> results) {
 		return results.get(index).getValue().getKey();
 	}
 
-	private Mat getHFromLocationList(int index, List<Pair<Double, Pair<Image, Mat>>> results) {
+	private Pair<Mat, Mat> getRTFromLocationList(int index, List<Pair<Double, Pair<Image, Pair<Mat, Mat>>>> results) {
 		return results.get(index).getValue().getValue();
 	}
 
@@ -222,32 +227,57 @@ class PlaceDatabase {
 		return response;
 	}
 
-	private Mat getModelMatrix(Mat HMatchToQuery, Mat HSurfaceToMatch, Image matchImage, Image surfaceImage) {
+	private Mat getModelMatrix(Pair<Mat,Mat> RTMatchToQuery, Pair<Mat,Mat> RTSurfaceToMatch) {
 		Mat modelMatrix = new Mat(4, 4, CV_64F);
 
 		// Multiply the surface->image 1 homography with the image 1->query image homography
-		Mat composedH = matrixMultiply(HMatchToQuery, HSurfaceToMatch, 3, 3);
+		//Mat R = matrixMultiply(RTMatchToQuery.getKey(), RTSurfaceToMatch.getKey(), 3, 3);
+		Mat RMatchToQueryRodrigues = new Mat(3, 3, CV_64F);
+		Mat RSurfaceToMatchRodrigues = new Mat(3, 3, CV_64F);
+		Calib3d.Rodrigues(RTMatchToQuery.getKey(), RMatchToQueryRodrigues);
+		Calib3d.Rodrigues(RTSurfaceToMatch.getKey(), RSurfaceToMatchRodrigues);
+		Mat R = matrixMultiply(RMatchToQueryRodrigues, RSurfaceToMatchRodrigues, 3, 3);
 
-		return getModelMatrix(composedH);
+		Mat T = new Mat(3, 1, CV_64F);
+		T.put(0, 0, (RTMatchToQuery.getValue().get(0, 0)[0] + RTSurfaceToMatch.getValue().get(0, 0)[0]) / 1080);
+		T.put(1, 0, (RTMatchToQuery.getValue().get(1, 0)[0] + RTSurfaceToMatch.getValue().get(1, 0)[0]) / 1980);
+		T.put(2, 0, RTMatchToQuery.getValue().get(2, 0)[0] + RTSurfaceToMatch.getValue().get(2, 0)[0]);
+
 		/*
-		List<Mat> Rs = new LinkedList<>(); List<Mat> Ts = new LinkedList<>();
-		Calib3d.decomposeHomographyMat(composedH, K, Rs, Ts, new LinkedList<>());
-		Mat R = Rs.get(0); Mat T = Ts.get(0);
 
 		// Get the new center coordinates of the surface
 
 		Mat offset = new Mat(3, 1, CV_64F);
-		offset.put(0, 0, surfaceImage.width / 2);
-		offset.put(1, 0, surfaceImage.height / 2);
+		offset.put(0, 0, 1080 / 2);
+		offset.put(1, 0, 1980 / 2);
 		offset.put(2, 0, 0);
 		Mat centers = matrixMultiply(R, offset, 3, 1);
 
 		System.out.println(centers.dump());
+*/
+		System.out.println("final translation " + T.dump());
+		System.out.println("final rotation " + R.dump());
 
+		List<Point3> listSourcePoints = new LinkedList<>();
+		listSourcePoints.add(new Point3(821, 915, 0));
+		listSourcePoints.add(new Point3(1459,720, 0));
+		listSourcePoints.add(new Point3(1347,1603, 0));
+		listSourcePoints.add(new Point3(2056,1287, 0));
+		MatOfPoint3f sourcePoints = new MatOfPoint3f();
+		sourcePoints.fromList(listSourcePoints);
+
+
+		MatOfPoint2f imgPts = new MatOfPoint2f();
+		//MatOfPoint3f objectPoints, Mat rvec, Mat tvec, Mat cameraMatrix, MatOfDouble distCoeffs, MatOfPoint2f imagePoints
+		Calib3d.projectPoints(sourcePoints, RTMatchToQuery.getKey(), RTMatchToQuery.getValue(), this.K, new MatOfDouble(), imgPts);
+
+		System.out.println(imgPts.dump());
+
+		/*
 		T.put(0, 0, T.get(0, 0)[0] + centers.get(0, 0)[0] / 5000);
 		T.put(1, 0, T.get(1, 0)[0] + centers.get(1, 0)[0] / 5000);
 		T.put(2, 0, T.get(2, 0)[0] + centers.get(2, 0)[0] / 5000);
-
+*/
 
 		// Put the R matrix into the model matrix
 		modelMatrix.put(0, 0, R.get(0, 0)[0]);
@@ -269,7 +299,9 @@ class PlaceDatabase {
 		modelMatrix.put(0,3, 0);
 		modelMatrix.put(1,3, 0);
 		modelMatrix.put(2,3, 0);
-		modelMatrix.put(3,3, 1);*/
+		modelMatrix.put(3,3, 1);
+
+		return modelMatrix;
 
 	}
 

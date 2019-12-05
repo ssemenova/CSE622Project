@@ -15,6 +15,7 @@ import java.util.LinkedList;
 import java.util.List;
 import javax.imageio.ImageIO;
 
+import static org.opencv.core.CvType.CV_64F;
 import static org.opencv.imgcodecs.Imgcodecs.CV_LOAD_IMAGE_UNCHANGED;
 import static org.opencv.imgcodecs.Imgcodecs.imdecode;
 
@@ -25,7 +26,8 @@ class Image {
 	String name;
 	double height;
 	double width;
-	HashMap<String, Mat> surfacesOccurringH;
+	HashMap<String, Pair<Mat, Mat>> surfacesOccurringRandT;
+	Mat K;
 
 	/* Use this constructor to set up place images in a place database */
 	public Image(String path, String filename) {
@@ -38,7 +40,8 @@ class Image {
 		this.height = (double) imageMatrix.height();
 		this.width = (double) imageMatrix.width();
 		this.name = filename;
-		this.surfacesOccurringH = new HashMap<>();
+		this.surfacesOccurringRandT = new HashMap<>();
+		this.K = getK();
 
 		detectKeypointsForSetup();
 	}
@@ -51,6 +54,7 @@ class Image {
 		this.name = "test image";
 		this.height = (double) imageMatrix.height();
 		this.width = (double) imageMatrix.width();
+		this.K = getK();
 
 		ORB orb = ORB.create();
 		this.keypoints = new MatOfKeyPoint();
@@ -79,18 +83,26 @@ class Image {
 			listDestinationPoints.add(new Point(vals));
 		}
 
-		List<Point> listSourcePoints = new LinkedList<>();
-		listSourcePoints.add(new Point(0, 0));
-		listSourcePoints.add(new Point(surfaceImage.width, 0));
-		listSourcePoints.add(new Point(0, surfaceImage.height));
-		listSourcePoints.add(new Point(surfaceImage.width, surfaceImage.height));
+		List<Point3> listSourcePoints = new LinkedList<>();
+		listSourcePoints.add(new Point3(0, 0, 0));
+		listSourcePoints.add(new Point3(surfaceImage.width, 0, 0));
+		listSourcePoints.add(new Point3(0, surfaceImage.height, 0));
+		listSourcePoints.add(new Point3(surfaceImage.width, surfaceImage.height, 0));
 
-		MatOfPoint2f sourcePoints = new MatOfPoint2f();
+		System.out.println(listSourcePoints);
+
+		MatOfPoint3f sourcePoints = new MatOfPoint3f();
 		sourcePoints.fromList(listSourcePoints);
 		MatOfPoint2f destinationPoints = new MatOfPoint2f();
 		destinationPoints.fromList(listDestinationPoints);
 
-		Mat H = Imgproc.getPerspectiveTransform(sourcePoints, destinationPoints);
+		Mat rvec = new Mat(); Mat tvec = new Mat();
+		Mat inliers = new Mat();
+		double confidence = .95;
+		Calib3d.solvePnPRansac(sourcePoints, destinationPoints, this.K, new MatOfDouble(), rvec, tvec, false, 500, 5.0f, confidence, inliers);
+		Mat rotationMatrix = new Mat();
+		//Calib3d.Rodrigues(rvec, rotationMatrix);
+
 
 		/* Uncomment to print images to test
 		Mat destImage = new Mat();
@@ -105,7 +117,7 @@ class Image {
 		}
 		 */
 
-		this.surfacesOccurringH.put(surfaceDescriptor[0], H);
+		this.surfacesOccurringRandT.put(surfaceDescriptor[0], new Pair(rvec, tvec));
 
 		// Decompose homography into Rs and Ts. Just accept the first solution.
 		//List<Mat> Rs = new LinkedList<>();
@@ -150,7 +162,7 @@ class Image {
      * Called by the PlaceDatabase, at an attempt at localization, to retrieve a
      * set of inlying points between this image and the test image.
      */
-	public Pair<Mat, Double> featureComparison(Image otherImage, int i) {
+	public Pair<Double, Pair<Mat, Mat>> featureComparison(Image otherImage, int i) {
 		BFMatcher matcher = BFMatcher.create(Core.NORM_HAMMING);
 		List<MatOfDMatch> knnMatches = new ArrayList<>();
 		matcher.knnMatch(this.descriptors, otherImage.descriptors, knnMatches, 2);
@@ -163,20 +175,17 @@ class Image {
 			return null;
 		}
 
-		Pair<Mat, List<DMatch>> homographyResults = this.computeHomographyGivenMatches(otherImage, thresholdedMatches);
+		Pair<Double, Pair<Mat, Mat>> PnPresults = this.solvePnPGivenMatches(otherImage, thresholdedMatches);
 
-		if (homographyResults == null) {
+		if (PnPresults == null) {
 			return null;
 		}
-
-		Mat H = homographyResults.getKey();
-		List<DMatch> inliers = homographyResults.getValue();
 
 //		drawProjection("infeaturecomparison ", homographyResults.getKey(), this);
 
 		// Might be better to use a measure of probability that isn't just
 		// how many feature matches there were.
-		return new Pair(H, (double) inliers.size() / (double) thresholdedMatches.size());
+		return PnPresults;
 	}
 
 	/*
@@ -200,30 +209,35 @@ class Image {
      * Computes a homography, using RANSAC, for a given other image and set of matches
      * between that image and this one. Returns the list of inliers.
      */
-    private Pair<Mat, List<DMatch>> computeHomographyGivenMatches(Image otherImage, List<DMatch> matches) {
-		List<Point> obj = new ArrayList<>();
+    private Pair<Double, Pair<Mat, Mat>> solvePnPGivenMatches(Image otherImage, List<DMatch> matches) {
+		List<Point3> obj = new ArrayList<>();
 		List<Point> scene = new ArrayList<>();
 		List<KeyPoint> listOfKeypointsObject = this.keypoints.toList();
 		List<KeyPoint> listOfKeypointsScene = otherImage.keypoints.toList();
 		for (int i = 0; i < matches.size(); i++) {
-			obj.add(listOfKeypointsObject.get(matches.get(i).queryIdx).pt);
+			double[] vals = {listOfKeypointsObject.get(matches.get(i).queryIdx).pt.x,
+				listOfKeypointsObject.get(matches.get(i).queryIdx).pt.y,
+				0
+			};
+			obj.add(new Point3(vals));
 			scene.add(listOfKeypointsScene.get(matches.get(i).trainIdx).pt);
 		}
-		MatOfPoint2f objMat = new MatOfPoint2f(), sceneMat = new MatOfPoint2f();
+		MatOfPoint3f objMat = new MatOfPoint3f();
+		MatOfPoint2f sceneMat = new MatOfPoint2f();
 		objMat.fromList(obj);
 		sceneMat.fromList(scene);
-		double ransacReprojThreshold = 5.0;
-		Mat mask = new Mat();
-		Mat H = Calib3d.findHomography( objMat, sceneMat, Calib3d.RANSAC, ransacReprojThreshold, mask);
 
-		List<DMatch> inliers = new LinkedList<>();
-		for (int i = 0; i < matches.size(); i++) {
-			if (mask.get(i, 0)[0] != 0) {
-				inliers.add(matches.get(i));
-			}
-		}
+		Mat rvec = new Mat(); Mat tvec = new Mat();
+		Mat inliers = new Mat();
+		double confidence = .95;
+		Calib3d.solvePnPRansac(objMat, sceneMat, this.K, new MatOfDouble(), rvec, tvec, false, 500, 5.0f, confidence, inliers);
+		Mat rotationMatrix = new Mat();
+		Calib3d.Rodrigues(rvec, rotationMatrix);
 
-		return inliers.size() == 0 ? null : new Pair(H, inliers);
+
+		System.out.println(inliers);
+
+		return new Pair(inliers.size().height / matches.size(), new Pair(rvec, tvec));
 	}
 
 
