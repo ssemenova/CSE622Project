@@ -17,28 +17,7 @@ class Server {
 		PlaceDatabase db = new PlaceDatabase(imageDatabaseDir, K);
 
 		System.out.println("Done with database");
-		Image image = new Image("../data/1.jpg", "1.jpg");
 
-		long startTime = System.nanoTime();
-		String response = serializeResponse(db.getModelMatricesForImage(image));
-		long endTime = System.nanoTime();
-		System.out.println("all " + (endTime - startTime) / 1000000);
-
-	}
-
-	public static String serializeResponse(HashMap<String, Mat> response) {
-		String stringResponse = "";
-
-		for (String surface : response.keySet()) {
-			stringResponse += surface + "\n";
-			stringResponse += response.get(surface).dump() + "\n";
-		}
-
-		System.out.println(stringResponse);
-		return stringResponse;
-	}
-
-/*
 		ServerSocket server = null;
 		InetAddress addr = null;
 		DataInputStream dataInputStream = null;
@@ -62,7 +41,12 @@ class Server {
 				byte[] bytes = buffer.toByteArray();
 
 				Image currentImage = new Image(bytes);
-				testImagesSocket(currentImage, db, K);
+
+				long startTime = System.nanoTime();
+				String response = serializeResponse(db.getModelMatricesForImage(image));
+				long endTime = System.nanoTime();
+				System.out.println("all " + (endTime - startTime) / 1000000);
+
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -70,10 +54,20 @@ class Server {
 		catch (Exception e){
 			e.printStackTrace();
 		}
-		long startTime = System.currentTimeMillis();
-		long endTime = System.currentTimeMillis();
-		System.out.println(endTime - startTime);
-	}*/
+
+	}
+
+	public static String serializeResponse(HashMap<String, Mat> response) {
+		String stringResponse = "";
+
+		for (String surface : response.keySet()) {
+			stringResponse += surface + "\n";
+			stringResponse += response.get(surface).dump() + "\n";
+		}
+
+		System.out.println(stringResponse);
+		return stringResponse;
+	}
 
 
 	public static Mat getK() {

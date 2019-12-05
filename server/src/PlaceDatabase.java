@@ -215,7 +215,7 @@ class PlaceDatabase {
 		// Multiply the surface->image 1 homography with the image 1->query image homography
 		Mat composedH = matrixMultiply(HMatchToQuery, HSurfaceToMatch, 3, 3);
 
-		return getModelMatrix(composedH);
+		return composedH;
 
 		/*
 		List<Mat> Rs = new LinkedList<>(); List<Mat> Ts = new LinkedList<>();
