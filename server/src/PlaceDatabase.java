@@ -121,13 +121,6 @@ class PlaceDatabase {
 				getModelMatrix(HMatchToQuery, HSurfaceToMatch, firstImage, this.surfaces.get(surfaceName))
 			);
 
-			/*
-			modelMatrices.put(
-
-					surfaceName,
-					getModelMatrix(firstImage, surfaceName, getHFromLocationList(0, results))
-			);
-			*/
 		}
 
 		// Add any surfaces that were not seen in the first image but that may be
@@ -151,12 +144,6 @@ class PlaceDatabase {
 							surfaceName,
 							getModelMatrix(HMatchToQuery, HSurfaceToMatch, currentImage, this.surfaces.get(surfaceName))
 						);
-
-						/*
-						modelMatrices.put(
-								surfaceName,
-								getModelMatrix(currentImage, surfaceName, getHFromLocationList(i, results))
-						);*/
 					}
 				}
 
@@ -229,6 +216,7 @@ class PlaceDatabase {
 		Mat composedH = matrixMultiply(HMatchToQuery, HSurfaceToMatch, 3, 3);
 
 		return getModelMatrix(composedH);
+
 		/*
 		List<Mat> Rs = new LinkedList<>(); List<Mat> Ts = new LinkedList<>();
 		Calib3d.decomposeHomographyMat(composedH, K, Rs, Ts, new LinkedList<>());
@@ -243,10 +231,11 @@ class PlaceDatabase {
 		Mat centers = matrixMultiply(R, offset, 3, 1);
 
 		System.out.println(centers.dump());
+		System.out.println(T.dump());
 
-		T.put(0, 0, T.get(0, 0)[0] + centers.get(0, 0)[0] / 5000);
-		T.put(1, 0, T.get(1, 0)[0] + centers.get(1, 0)[0] / 5000);
-		T.put(2, 0, T.get(2, 0)[0] + centers.get(2, 0)[0] / 5000);
+		T.put(0, 0, (T.get(0, 0)[0] + centers.get(0, 0)[0]) / 1980);
+		T.put(1, 0, (T.get(1, 0)[0] + centers.get(1, 0)[0]) / 1080);
+		T.put(2, 0, (T.get(2, 0)[0] + centers.get(2, 0)[0]) / 1000);
 
 
 		// Put the R matrix into the model matrix
@@ -262,14 +251,16 @@ class PlaceDatabase {
 
 		// Put the T matrix into the model matrix
 		modelMatrix.put(3, 0, T.get(0, 0)[0]);
-		modelMatrix.put(3, 1, - T.get(1, 0)[0]);
+		modelMatrix.put(3, 1, T.get(1, 0)[0]);
 		modelMatrix.put(3, 2, - T.get(2, 0)[0]);
 
 		// Bottom row should be 0 0 0 1
 		modelMatrix.put(0,3, 0);
 		modelMatrix.put(1,3, 0);
 		modelMatrix.put(2,3, 0);
-		modelMatrix.put(3,3, 1);*/
+		modelMatrix.put(3,3, 1);
+
+		return modelMatrix;*/
 
 	}
 
@@ -290,13 +281,12 @@ class PlaceDatabase {
 		Mat h2 = H.col(1);
 		Mat h3 = H.col(2);
 
-		Mat inverseH1 = matrixMultiply(this.inverseK, h1, 3, 3);
 
 		// Calculate a length for normalizing
 		double lambda = Math.sqrt(
 			h1.get(0, 0)[0] * h1.get(0, 0 )[0] +
-			h1.get(1,0)[0] * h1.get(1,0)[0] +
-			h1.get(2,0)[0] * h1.get(2,0)[0]
+				h1.get(1,0)[0] * h1.get(1,0)[0] +
+				h1.get(2,0)[0] * h1.get(2,0)[0]
 		);
 
 		Mat rotationMatrix = new Mat(3,3, CV_64F);
@@ -365,7 +355,7 @@ class PlaceDatabase {
 		modelMatrix.put(3, 1, - translationVector.get(1, 0)[0]);
 		modelMatrix.put(3, 2, - translationVector.get(2, 0)[0]);
 
-		// Bottom row should be 0 0 0 1
+		// Leftmost row should be 0 0 0 1
 		modelMatrix.put(0,3, 0);
 		modelMatrix.put(1,3, 0);
 		modelMatrix.put(2,3, 0);
