@@ -13,18 +13,21 @@ import java.util.*;
 import java.util.stream.Collectors;
 import org.apache.commons.math3.linear.SingularValueDecomposition;
 
-
-
+import static org.opencv.core.Core.DECOMP_SVD;
 import static org.opencv.core.CvType.CV_64F;
 
 class PlaceDatabase {
     HashMap<String, Image> images;
     HashMap<String, Image> surfaces;
-	double LOCALIZATION_THRESHOLD = .5;
-	double PROBABILITY_THRESHOLD = .3;
+	double PROBABILITY_THRESHOLD = .7;
+	Mat K;
+	Mat inverseK;
 
-    public PlaceDatabase(String dbName) {
+    public PlaceDatabase(String dbName, Mat K) {
 		System.out.println("CREATING DATABASE");
+		this.K = K;
+		this.inverseK = getInverseCameraMatrix();
+
 		images = new HashMap<>();
 		surfaces = new HashMap<>();
 
@@ -93,8 +96,8 @@ class PlaceDatabase {
 	 * Public method for Server to call.
 	 * Will return a Map from SurfaceName->{model matrix}
 	 */
-	public HashMap<String, Mat> getModelMatricesForImage(Image image, Mat K) {
-		List<Pair<Double, Pair<Image, Mat>>> results =  getLocationList(image);
+	public HashMap<String, Mat> getModelMatricesForImage(Image queryImage) {
+		List<Pair<Double, Pair<Image, Mat>>> results =  getLocationList(queryImage);
 
 		if (results.size() == 0) {
 			return new HashMap<>();
@@ -105,18 +108,26 @@ class PlaceDatabase {
 		// Get rotation and translation matrices from the image match to the
 		// input image using the homography found between them.
 		Image firstImage = getImageFromLocationList(0, results);
-		List<Mat> RsImage1 = new LinkedList<>(); List<Mat> TsImage1 = new LinkedList<>();
-		Calib3d.decomposeHomographyMat(getHFromLocationList(0, results), K, RsImage1, TsImage1, new LinkedList<>());
-		Mat R = RsImage1.get(0); Mat T = TsImage1.get(0);
+		Mat HMatchToQuery = getHFromLocationList(0, results);
 
 		// For each surface occurring in the original image, get the rotation and translation
 		// matrices from that surface to the match image, and use the composed R and T matrices
 		// from surface -> match image -> query image to create a model matrix
-		for (String surfaceName : firstImage.surfacesOccurring.keySet()) {
+		for (String surfaceName : firstImage.surfacesOccurringH.keySet()) {
+			Mat HSurfaceToMatch = firstImage.surfacesOccurringH.get(surfaceName);
+
 			modelMatrices.put(
-					surfaceName,
-					getModelMatrix(firstImage, surfaceName, R, T)
+				surfaceName,
+				getModelMatrix(HMatchToQuery, HSurfaceToMatch, firstImage, this.surfaces.get(surfaceName))
 			);
+
+			/*
+			modelMatrices.put(
+
+					surfaceName,
+					getModelMatrix(firstImage, surfaceName, getHFromLocationList(0, results))
+			);
+			*/
 		}
 
 		// Add any surfaces that were not seen in the first image but that may be
@@ -130,17 +141,22 @@ class PlaceDatabase {
 			if (probability < PROBABILITY_THRESHOLD || i == results.size() - 1) {
 				stop = true;
 			} else {
-				List<Mat> RsCurrentImage = new LinkedList<>(); List<Mat> TsCurrentImage = new LinkedList<>();
-				Calib3d.decomposeHomographyMat(
-						getHFromLocationList(i, results), K, RsCurrentImage, TsCurrentImage, new LinkedList<>());
-				R = RsCurrentImage.get(0); T = TsCurrentImage.get(0);
+				HMatchToQuery = getHFromLocationList(i, results);
 
-				for (String surfaceName : currentImage.surfacesOccurring.keySet()) {
-					if (!firstImage.surfacesOccurring.containsKey(surfaceName)) {
+				for (String surfaceName : currentImage.surfacesOccurringH.keySet()) {
+					if (!firstImage.surfacesOccurringH.containsKey(surfaceName)) {
+						Mat HSurfaceToMatch = currentImage.surfacesOccurringH.get(surfaceName);
+
+						modelMatrices.put(
+							surfaceName,
+							getModelMatrix(HMatchToQuery, HSurfaceToMatch, currentImage, this.surfaces.get(surfaceName))
+						);
+
+						/*
 						modelMatrices.put(
 								surfaceName,
-								getModelMatrix(currentImage, surfaceName, R, T)
-						);
+								getModelMatrix(currentImage, surfaceName, getHFromLocationList(i, results))
+						);*/
 					}
 				}
 
@@ -162,14 +178,12 @@ class PlaceDatabase {
 	private List<Pair<Double, Pair<Image, Mat>>> getLocationList(Image imToLocalize) {
 		List<Pair<Double, Pair<Image, Mat>>> results = new LinkedList<>();
 
-		System.out.println(this.images.keySet());
+		int i = 0;
 
 		for (String imageName : this.images.keySet()) {
 			Image currentImage = this.images.get(imageName);
 
-			System.out.println(imageName);
-
-			Pair<Mat, Double> featureComparisonForImage = currentImage.featureComparison(imToLocalize);
+			Pair<Mat, Double> featureComparisonForImage = currentImage.featureComparison(imToLocalize, i);
 			if (featureComparisonForImage != null) {
 				Mat currentH = featureComparisonForImage.getKey();
 				double currentP = featureComparisonForImage.getValue();
@@ -180,6 +194,7 @@ class PlaceDatabase {
 				));
 
 			}
+			i++;
 		}
 
 		List<Pair<Double, Pair<Image, Mat>>> sortedResults = results.stream()
@@ -201,63 +216,159 @@ class PlaceDatabase {
 		return results.get(index).getValue().getValue();
 	}
 
+	private Mat matrixMultiply(Mat m1, Mat m2, int rows, int cols) {
+		Mat response = new Mat(rows, cols, CV_64F);
+		Core.gemm(m1, m2, 1, Mat.zeros(rows, cols, CV_64F) , 0, response, 0);
+		return response;
+	}
+
+	private Mat getModelMatrix(Mat HMatchToQuery, Mat HSurfaceToMatch, Image matchImage, Image surfaceImage) {
+		Mat modelMatrix = new Mat(4, 4, CV_64F);
+
+		// Multiply the surface->image 1 homography with the image 1->query image homography
+		Mat composedH = matrixMultiply(HMatchToQuery, HSurfaceToMatch, 3, 3);
+
+		return getModelMatrix(composedH);
+		/*
+		List<Mat> Rs = new LinkedList<>(); List<Mat> Ts = new LinkedList<>();
+		Calib3d.decomposeHomographyMat(composedH, K, Rs, Ts, new LinkedList<>());
+		Mat R = Rs.get(0); Mat T = Ts.get(0);
+
+		// Get the new center coordinates of the surface
+
+		Mat offset = new Mat(3, 1, CV_64F);
+		offset.put(0, 0, surfaceImage.width / 2);
+		offset.put(1, 0, surfaceImage.height / 2);
+		offset.put(2, 0, 0);
+		Mat centers = matrixMultiply(R, offset, 3, 1);
+
+		System.out.println(centers.dump());
+
+		T.put(0, 0, T.get(0, 0)[0] + centers.get(0, 0)[0] / 5000);
+		T.put(1, 0, T.get(1, 0)[0] + centers.get(1, 0)[0] / 5000);
+		T.put(2, 0, T.get(2, 0)[0] + centers.get(2, 0)[0] / 5000);
+
+
+		// Put the R matrix into the model matrix
+		modelMatrix.put(0, 0, R.get(0, 0)[0]);
+		modelMatrix.put(1, 0, - R.get(0, 1)[0]);
+		modelMatrix.put(2, 0, - R.get(0, 2)[0]);
+		modelMatrix.put(0, 1, - R.get(1, 0)[0]);
+		modelMatrix.put(1, 1, R.get(1, 1)[0]);
+		modelMatrix.put(2, 1, R.get(1, 2)[0]);
+		modelMatrix.put(0, 2, - R.get(2, 0)[0]);
+		modelMatrix.put(1, 2, R.get(2, 1)[0]);
+		modelMatrix.put(2, 2, R.get(2, 2)[0]);
+
+		// Put the T matrix into the model matrix
+		modelMatrix.put(3, 0, T.get(0, 0)[0]);
+		modelMatrix.put(3, 1, - T.get(1, 0)[0]);
+		modelMatrix.put(3, 2, - T.get(2, 0)[0]);
+
+		// Bottom row should be 0 0 0 1
+		modelMatrix.put(0,3, 0);
+		modelMatrix.put(1,3, 0);
+		modelMatrix.put(2,3, 0);
+		modelMatrix.put(3,3, 1);*/
+
+	}
+
 	/*
 	 * Given a match image, a surface name, and a Rotation and Translation matrix for converting the
 	 * image into the input image, get the combined R and T matrix for converting the surface
 	 * into the first image, then the first image into the query image,
 	 * and use those to construct a model matrix.
 	 */
-	private Mat getModelMatrix(Image matchImage, String surfaceName, Mat RMatchToQueryImage, Mat TMatchToQueryImage) {
+	private Mat getModelMatrix(Mat H) {
 		Mat modelMatrix = new Mat(4, 4, CV_64F);
 
-		// Multiply the surface->image 1 RT with the image 1->query image RT
-		Mat R = new Mat(3, 3, CV_64F);
-		Mat T = new Mat(1, 3, CV_64F);
-		Core.multiply(matchImage.surfacesOccurring.get(surfaceName).getKey(), RMatchToQueryImage, R);
-		Core.multiply(matchImage.surfacesOccurring.get(surfaceName).getValue(), TMatchToQueryImage, T);
+		// Decompose homography into translation and rotation vectors
+		Mat inverseCameraMatrixLocal = new Mat(3, 3, CV_64F);
+
+		// Column vectors of homography
+		Mat h1 = H.col(0);
+		Mat h2 = H.col(1);
+		Mat h3 = H.col(2);
+
+		Mat inverseH1 = matrixMultiply(this.inverseK, h1, 3, 3);
+
+		// Calculate a length for normalizing
+		double lambda = Math.sqrt(
+			h1.get(0, 0)[0] * h1.get(0, 0 )[0] +
+			h1.get(1,0)[0] * h1.get(1,0)[0] +
+			h1.get(2,0)[0] * h1.get(2,0)[0]
+		);
+
+		Mat rotationMatrix = new Mat(3,3, CV_64F);
+
+		// Normalize inverseCameraMatrix
+		if (lambda != 0) {
+			Scalar s = new Scalar(1 / lambda);
+			Core.multiply(inverseK, s, inverseCameraMatrixLocal);
+		}
+
+		// Column vectors of rotation matrix
+		Mat r1 = matrixMultiply(inverseCameraMatrixLocal, h1, 3, 1);
+		Mat r2 = matrixMultiply(inverseCameraMatrixLocal, h2, 3, 1);
+		Mat r3 = r1.cross(r2);
+
+		// Put rotation columns into rotation matrix
+		rotationMatrix.put(0, 0, r1.get(0,0)[0]);
+		rotationMatrix.put(0, 1, r2.get(0,0)[0] * -1);
+		rotationMatrix.put(0, 2, r3.get(0,0)[0] * -1);
+		rotationMatrix.put(1, 0, r1.get(1,0)[0] * -1);
+		rotationMatrix.put(1, 1, r2.get(1,0)[0]);
+		rotationMatrix.put(1, 2, r3.get(1,0)[0]);
+		rotationMatrix.put(2, 0, r1.get(2,0)[0] * -1);
+		rotationMatrix.put(2, 1, r2.get(2,0)[0]);
+		rotationMatrix.put(2, 2, r3.get(2,0)[0]);
+
+		// Translation vector T
+		Mat translationVector = matrixMultiply(inverseCameraMatrixLocal, h3, 3, 1);
+		translationVector.put(1, 0, translationVector.get(1, 0)[0] * -1);
+		translationVector.put(2, 0, translationVector.get(2, 0)[0] * -1);
 
 		// Convert the rotation matrix into a realmatrix (clunky, but can't find a way
-		// to do svd otherwise), with some items negated.
-		// Then, multiply the u and vt of the matrix from the svd.
+		// to do svd otherwise). Then, multiply the u and vt of the matrix from the svd.
 		// Then the R matrix is ready to be put into the model matrix.
-		RealMatrix tempRrealmatrix = matToRealMatrix(R);
-		tempRrealmatrix.setEntry(0, 0, R.get(0, 0)[0] * 1);
-		tempRrealmatrix.setEntry(0, 1, R.get(0, 1)[0] * -1);
-		tempRrealmatrix.setEntry(0, 2, R.get(0, 2)[0] * -1);
-		tempRrealmatrix.setEntry(1, 0, R.get(1, 0)[0] * -1);
-		tempRrealmatrix.setEntry(1, 1, R.get(1, 1)[0] * 1);
-		tempRrealmatrix.setEntry(1, 2, R.get(1, 2)[0] * 1);
-		tempRrealmatrix.setEntry(2, 0, R.get(2, 0)[0] * -1);
-		tempRrealmatrix.setEntry(2, 1, R.get(2, 1)[0] * 1);
-		tempRrealmatrix.setEntry(2, 2, R.get(2, 2)[0] * 1);
+		RealMatrix tempRrealmatrix = matToRealMatrix(rotationMatrix);
+		tempRrealmatrix.setEntry(0, 0, rotationMatrix.get(0, 0)[0]);
+		tempRrealmatrix.setEntry(0, 1, rotationMatrix.get(0, 1)[0]);
+		tempRrealmatrix.setEntry(0, 2, rotationMatrix.get(0, 2)[0]);
+		tempRrealmatrix.setEntry(1, 0, rotationMatrix.get(1, 0)[0]);
+		tempRrealmatrix.setEntry(1, 1, rotationMatrix.get(1, 1)[0]);
+		tempRrealmatrix.setEntry(1, 2, rotationMatrix.get(1, 2)[0]);
+		tempRrealmatrix.setEntry(2, 0, rotationMatrix.get(2, 0)[0]);
+		tempRrealmatrix.setEntry(2, 1, rotationMatrix.get(2, 1)[0]);
+		tempRrealmatrix.setEntry(2, 2, rotationMatrix.get(2, 2)[0]);
 
 		// SVD
 		SingularValueDecomposition svd = new SingularValueDecomposition(tempRrealmatrix);
 		RealMatrix u = svd.getU();
 		RealMatrix vt = svd.getVT();
 		RealMatrix multipliedUAndVt = u.multiply(vt);
-		Mat newR = realMatrixToMat(multipliedUAndVt);
+		rotationMatrix = realMatrixToMat(multipliedUAndVt);
 
 		// Put the R matrix into the model matrix
-		modelMatrix.put(0, 0, newR.get(0, 0)[0]);
-		modelMatrix.put(0, 1, newR.get(0, 1)[0]);
-		modelMatrix.put(0, 2, newR.get(0, 2)[0]);
-		modelMatrix.put(1, 0, newR.get(1, 0)[0]);
-		modelMatrix.put(1, 1, newR.get(1, 1)[0]);
-		modelMatrix.put(1, 2, newR.get(1, 2)[0]);
-		modelMatrix.put(2, 0, newR.get(2, 0)[0]);
-		modelMatrix.put(2, 1, newR.get(2, 1)[0]);
-		modelMatrix.put(2, 2, newR.get(2, 2)[0]);
+		modelMatrix.put(0, 0, rotationMatrix.get(0, 0)[0]);
+		modelMatrix.put(1, 0, rotationMatrix.get(0, 1)[0]);
+		modelMatrix.put(2, 0, rotationMatrix.get(0, 2)[0]);
+		modelMatrix.put(0, 1, rotationMatrix.get(1, 0)[0]);
+		modelMatrix.put(1, 1, rotationMatrix.get(1, 1)[0]);
+		modelMatrix.put(2, 1, rotationMatrix.get(1, 2)[0]);
+		modelMatrix.put(0, 2, rotationMatrix.get(2, 0)[0]);
+		modelMatrix.put(1, 2, rotationMatrix.get(2, 1)[0]);
+		modelMatrix.put(2, 2, rotationMatrix.get(2, 2)[0]);
 
 		// Put the T matrix into the model matrix
-		modelMatrix.put(0, 3, T.get(0, 0)[0]);
-		modelMatrix.put(1, 3, T.get(1, 0)[0] * -1);
-		modelMatrix.put(2, 3, T.get(2, 0)[0] * -1);
+		modelMatrix.put(3, 0, translationVector.get(0, 0)[0]);
+		modelMatrix.put(3, 1, - translationVector.get(1, 0)[0]);
+		modelMatrix.put(3, 2, - translationVector.get(2, 0)[0]);
 
 		// Bottom row should be 0 0 0 1
-		modelMatrix.put(3,0, 0);
-		modelMatrix.put(3,1, 0);
-		modelMatrix.put(3,2, 0);
+		modelMatrix.put(0,3, 0);
+		modelMatrix.put(1,3, 0);
+		modelMatrix.put(2,3, 0);
 		modelMatrix.put(3,3, 1);
 
 		return modelMatrix;
@@ -272,6 +383,25 @@ class PlaceDatabase {
 		Calib3d.decomposeHomographyMat(H, K, Rs, Ts, new LinkedList<>());
 
 		return new Pair(Rs.get(0), Ts.get(0));
+	}
+
+	/*
+	* Used in the function that gets the model matrix
+	*/
+	private Mat getInverseCameraMatrix() {
+		Mat inverseK = new Mat(3,3, CV_64F);
+
+		inverseK.put(0, 0, (1 / K.get(0, 0)[0]));
+		inverseK.put(0, 1, 0);
+		inverseK.put(0, 2, 0 - (K.get(0, 2)[0] / K.get(0,0)[0]));
+		inverseK.put(1, 0, 0);
+		inverseK.put(1, 1, 1/K.get(1,1)[0]);
+		inverseK.put(1, 2, 0 - (K.get(1,2)[0] / K.get(1,1)[0]));
+		inverseK.put(2, 0, 0);
+		inverseK.put(2, 1, 0);
+		inverseK.put(2, 2, 1);
+
+		return inverseK;
 	}
 
 	/**** Type conversions... *****/

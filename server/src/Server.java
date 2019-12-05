@@ -14,11 +14,15 @@ class Server {
 
 		System.out.println("Setting up database");
 		String imageDatabaseDir = args[0];
-		PlaceDatabase db = new PlaceDatabase(imageDatabaseDir);
+		PlaceDatabase db = new PlaceDatabase(imageDatabaseDir, K);
 
 		System.out.println("Done with database");
 		Image image = new Image("../data/1.jpg", "1.jpg");
-		String response = serializeResponse(db.getModelMatricesForImage(image, K));
+
+		long startTime = System.nanoTime();
+		String response = serializeResponse(db.getModelMatricesForImage(image));
+		long endTime = System.nanoTime();
+		System.out.println("all " + (endTime - startTime) / 1000000);
 
 	}
 

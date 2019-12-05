@@ -23,23 +23,21 @@ class Image {
 	Mat descriptors;
 	Mat imageMatrix;
 	String name;
-	int height;
-	int width;
-	HashMap<String, Pair<Mat, Mat>> surfacesOccurring; // uninitialized if the image is a surface
+	double height;
+	double width;
 	HashMap<String, Mat> surfacesOccurringH;
 
 	/* Use this constructor to set up place images in a place database */
 	public Image(String path, String filename) {
-		this.imageMatrix = Imgcodecs.imread(path, Imgcodecs.CV_LOAD_IMAGE_GRAYSCALE);//, Imgcodecs.IMREAD_GRAYSCALE);
+		this.imageMatrix = Imgcodecs.imread(path);//, Imgcodecs.IMREAD_GRAYSCALE);
 
 		if (this.imageMatrix.size().equals(new Size(0, 0))) {
 			System.out.println("Could not read image " + filename);
 		}
 
-		this.height = imageMatrix.height();
-		this.width = imageMatrix.width();
+		this.height = (double) imageMatrix.height();
+		this.width = (double) imageMatrix.width();
 		this.name = filename;
-		this.surfacesOccurring = new HashMap<>();
 		this.surfacesOccurringH = new HashMap<>();
 
 		detectKeypointsForSetup();
@@ -51,11 +49,14 @@ class Image {
 	public Image(byte[] inputStream) {
 		this.imageMatrix = imdecode(new MatOfByte(inputStream), CV_LOAD_IMAGE_UNCHANGED);
 		this.name = "test image";
+		this.height = (double) imageMatrix.height();
+		this.width = (double) imageMatrix.width();
 
 		ORB orb = ORB.create();
 		this.keypoints = new MatOfKeyPoint();
 		this.descriptors = new Mat();
 		orb.detectAndCompute(imageMatrix, new Mat(), keypoints, descriptors);
+		detectKeypointsForSetup();
 	}
 
 	/*
@@ -70,7 +71,11 @@ class Image {
 		List<Point> listDestinationPoints = new LinkedList<>();
 		for (int i = 1; i <= 4; i++) {
 			String[] stringVals = surfaceDescriptor[i].split(",");
-			double[] vals = {Double.parseDouble(stringVals[0]), Double.parseDouble(stringVals[1])};
+			// This might be wrong:
+			double[] vals = {
+				Double.parseDouble(stringVals[0]), // - (this.width / 2),
+				Double.parseDouble(stringVals[1]) // - (this.height / 2)
+			};
 			listDestinationPoints.add(new Point(vals));
 		}
 
@@ -103,12 +108,12 @@ class Image {
 		this.surfacesOccurringH.put(surfaceDescriptor[0], H);
 
 		// Decompose homography into Rs and Ts. Just accept the first solution.
-		List<Mat> Rs = new LinkedList<>();
-		List<Mat> Ts = new LinkedList<>();
-		List<Mat> normals = new LinkedList<>();
-		Calib3d.decomposeHomographyMat(H, getK(), Rs, Ts, normals);
+		//List<Mat> Rs = new LinkedList<>();
+		//List<Mat> Ts = new LinkedList<>();
+		//List<Mat> normals = new LinkedList<>();
+		//Calib3d.decomposeHomographyMat(H, getK(), Rs, Ts, normals);
 
-		this.surfacesOccurring.put(surfaceDescriptor[0], new Pair(Rs.get(0), Ts.get(0)));
+		//this.surfacesOccurring.put(surfaceDescriptor[0], new Pair(Rs.get(0), Ts.get(0)));
 	}
 
 	public void detectKeypointsForSetup() {
@@ -117,27 +122,49 @@ class Image {
 		this.descriptors = new Mat();
 		this.keypoints = new MatOfKeyPoint();
 		detector.detectAndCompute(this.imageMatrix, new Mat(), keypoints, descriptors);
+		//convertKeypoints();
 	}
 
 	/*
+	 * Converts keypoints so the 0,0 point is at the center of the screen,
+	 * vs openCV's default upper left corner, and so that the entire
+	 * pixel coordinate range is from -1 to 1.
+	 */
+	private void convertKeypoints() {
+		KeyPoint[] kps = this.keypoints.toArray();
+
+		double halfWidth = this.imageMatrix.width() / 2;
+		double halfHeight = this.imageMatrix.height() / 2;
+
+		for (KeyPoint kp : kps) {
+			double[] newPoint = {
+				kp.pt.x - halfWidth,
+				kp.pt.y - halfHeight};
+			kp.pt = new Point(newPoint);
+		}
+
+		this.keypoints.fromArray(kps);
+	}
+	/*
+
      * Called by the PlaceDatabase, at an attempt at localization, to retrieve a
      * set of inlying points between this image and the test image.
      */
-	public Pair<Mat, Double> featureComparison(Image otherImage) {
+	public Pair<Mat, Double> featureComparison(Image otherImage, int i) {
 		BFMatcher matcher = BFMatcher.create(Core.NORM_HAMMING);
 		List<MatOfDMatch> knnMatches = new ArrayList<>();
 		matcher.knnMatch(this.descriptors, otherImage.descriptors, knnMatches, 2);
 		List<DMatch> thresholdedMatches = thresholdKnnResults(knnMatches);
 
-		if (thresholdedMatches.size() < 4) {
+		if (thresholdedMatches.size() < 10) {
 			// Can't find a homography with fewer than four matches,
 			// but don't bother overfitting if there aren't that
 			// many matches to begin with.
 			return null;
 		}
 
-
 		Pair<Mat, List<DMatch>> homographyResults = this.computeHomographyGivenMatches(otherImage, thresholdedMatches);
+
 		if (homographyResults == null) {
 			return null;
 		}
@@ -145,7 +172,7 @@ class Image {
 		Mat H = homographyResults.getKey();
 		List<DMatch> inliers = homographyResults.getValue();
 
-		drawInliers(inliers, otherImage, 1);
+//		drawProjection("infeaturecomparison ", homographyResults.getKey(), this);
 
 		// Might be better to use a measure of probability that isn't just
 		// how many feature matches there were.
@@ -206,7 +233,7 @@ class Image {
      * Draws this image and its keypoints to the specified filename.
      * Use this for testing.
      */
-    private void drawImage(String filename) {
+    public void drawImage(String filename) {
         Mat outputImage = new Mat();
         Features2d.drawKeypoints(imageMatrix, keypoints, outputImage);
         try {
@@ -215,6 +242,17 @@ class Image {
             System.out.println("IOException when drawing image");
         }
     }
+
+    public void drawProjection(String filename, Mat H, Image originalImage) {
+		Mat outputImage = new Mat();
+		Imgproc.warpPerspective(this.imageMatrix, outputImage, H, originalImage.imageMatrix.size());
+
+		try {
+			ImageIO.write(matToBufferedImage(outputImage), "png", new File("output/" + filename));
+		} catch(IOException e) {
+			System.out.println("IOException when drawing image");
+		}
+	}
 
     /*
      * Draws this image with a supplied other image, and lines between each feature match.
@@ -233,7 +271,7 @@ class Image {
 		try {
 			ImageIO.write(matToBufferedImage(outImage),
 					"png",
-					new File("output/" + this.name + " " + index + ".png"));
+					new File("output/inliersfor" + this.name + " " + index + ".png"));
 		} catch(IOException e) {}
 	}
 
